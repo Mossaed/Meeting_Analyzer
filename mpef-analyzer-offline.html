@@ -51,6 +51,8 @@ input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--teal);ou
 .art .opt{font-size:9.5px;font-weight:600;color:var(--muted);background:#EFF2F6;border-radius:4px;padding:1px 6px;letter-spacing:.05em}
 .art .st{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
 .art .st.ok{color:var(--teal-ink)}
+.impLbl{font-family:var(--body);font-size:10px;font-weight:600;color:var(--teal-ink);cursor:pointer;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+.impLbl:hover{color:var(--teal)}
 .runbar{display:flex;gap:10px;align-items:center}
 .btn{appearance:none;border:0;cursor:pointer;border-radius:8px;padding:11px 18px;font-weight:600;font-size:13.5px}
 .btn-run{flex:1;background:var(--teal);color:#fff}
@@ -162,15 +164,20 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
     <div class="card">
       <div class="cap"><h2>Artifacts</h2><span class="tag">paste text</span></div>
       <div class="bd" id="artBox">
-        <div class="art"><div class="lr"><label for="aAgenda">Agenda</label><span class="req">REQUIRED</span><span class="st" data-for="aAgenda">empty</span></div>
+        <div class="art"><div class="lr"><label for="aAgenda">Agenda</label><span class="req">REQUIRED</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aAgenda">Import file</label><input type="file" id="file_aAgenda" accept=".txt,.md" style="display:none"><span class="st" data-for="aAgenda" style="margin-left:0">empty</span></span></div>
           <textarea id="aAgenda" placeholder="1. KPI review — Sara — 10 min&#10;2. Roadmap update — Amir — 10 min&#10;…"></textarea></div>
-        <div class="art"><div class="lr"><label for="aTrans">Transcript</label><span class="req">REQUIRED</span><span class="st" data-for="aTrans">empty</span></div>
+        <div class="art"><div class="lr"><label for="aTrans">Transcript</label><span class="req">REQUIRED</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aTrans">Import file</label><input type="file" id="file_aTrans" accept=".txt,.vtt,.srt,.md" style="display:none"><span class="st" data-for="aTrans" style="margin-left:0">empty</span></span></div>
           <textarea id="aTrans" style="min-height:150px" placeholder="[00:04] Sara: Let's get started…&#10;(timestamps + speaker labels give the best coverage)"></textarea></div>
-        <div class="art"><div class="lr"><label for="aMom">Minutes (MoM)</label><span class="opt">OPTIONAL</span><span class="st" data-for="aMom">empty</span></div>
+        <div class="art"><div class="lr"><label for="aMom">Minutes (MoM)</label><span class="opt">OPTIONAL</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aMom">Import file</label><input type="file" id="file_aMom" accept=".txt,.md" style="display:none"><span class="st" data-for="aMom" style="margin-left:0">empty</span></span></div>
           <textarea id="aMom" placeholder="Decisions, action items as circulated…"></textarea></div>
-        <div class="art"><div class="lr"><label for="aChat">Chat log</label><span class="opt">OPTIONAL</span><span class="st" data-for="aChat">empty</span></div>
+        <div class="art"><div class="lr"><label for="aChat">Chat log</label><span class="opt">OPTIONAL</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aChat">Import file</label><input type="file" id="file_aChat" accept=".txt,.md" style="display:none"><span class="st" data-for="aChat" style="margin-left:0">empty</span></span></div>
           <textarea id="aChat" placeholder="10:12 Omar: what's the churn number?…"></textarea></div>
-        <div class="art"><div class="lr"><label for="aAtt">Attendance log</label><span class="opt">OPTIONAL</span><span class="st" data-for="aAtt">empty</span></div>
+        <div class="art"><div class="lr"><label for="aAtt">Attendance log</label><span class="opt">OPTIONAL</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aAtt">Import file</label><input type="file" id="file_aAtt" accept=".txt,.md" style="display:none"><span class="st" data-for="aAtt" style="margin-left:0">empty</span></span></div>
           <textarea id="aAtt" placeholder="Sara joined 10:00, left 11:07…"></textarea></div>
         <div class="runbar">
           <button class="btn btn-run" id="localBtn">Extract &amp; score locally</button>
@@ -182,9 +189,13 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
           <div class="ofhd">Any-AI route <span>for higher-quality extraction</span></div>
           <div class="ofsub">Copy the extraction prompt, run it in any AI chat when convenient, paste the JSON it returns, and score locally. Local extraction also drops its JSON below so you can inspect, correct, and re-score.</div>
           <div class="ofbtns"><button class="btn btn-ghost" id="copyPromptBtn" style="flex:1">1 · Copy extraction prompt</button><button class="btn btn-ghost" id="savePromptBtn" title="For very large transcripts — avoids clipboard limits">Save as .txt</button></div>
-          <label for="pasteJson" style="margin-top:10px">2 · Paste the JSON the AI returns</label>
+          <div style="display:flex;align-items:baseline;gap:10px;margin-top:10px">
+            <label for="pasteJson" style="margin:0">2 · Paste the JSON the AI returns</label>
+            <label class="impLbl" for="fileJson" style="margin-left:auto">Import file</label><input type="file" id="fileJson" accept=".json,.txt" style="display:none">
+          </div>
           <textarea id="pasteJson" style="min-height:72px" placeholder='{"meeting":{...},"agenda_items":[...],"participants":[...]}'></textarea>
           <div class="ofbtns"><button class="btn btn-run" id="scoreJsonBtn" style="flex:1">3 · Score pasted JSON</button></div>
+          <div class="ofbtns"><button class="btn btn-ghost" id="downloadJsonBtn" style="flex:1">Download extraction JSON</button></div>
         </div>
         <div class="hint"><b>Extract &amp; score locally</b> runs the entire pipeline on this device — a deterministic rule engine reads the artifacts, then the same scoring code renders the dashboard. Nothing leaves this machine and no connection is ever used. Best with timestamped, speaker-labeled transcripts. For higher-quality extraction on messy input, use the <b>any-AI route</b> below in any chat tool you like, then paste its JSON back — scoring is identical. Missing evidence marks its dimensions <b>Not Assessable</b> — never estimated.</div>
       </div>
@@ -410,6 +421,52 @@ $("scoreJsonBtn").addEventListener("click", () => {
     $("runState").textContent = "error";
   }
 });
+
+/* file import: read a local file straight into a textarea/JSON box --
+   entirely local (File.text()), no network, same offline guarantee. */
+function wireFileImport(fileInputId, targetId) {
+  $(fileInputId).addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
+    try {
+      const text = await file.text();
+      $(targetId).value = text;
+      $(targetId).dispatchEvent(new Event("input"));
+    } catch (ex) {
+      err.textContent = "Couldn't read that file — try pasting the text directly.";
+      err.style.display = "block";
+    }
+  });
+}
+["aAgenda","aTrans","aMom","aChat","aAtt"].forEach(id => wireFileImport("file_" + id, id));
+wireFileImport("fileJson", "pasteJson");
+
+$("downloadJsonBtn").addEventListener("click", () => {
+  const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
+  const raw = $("pasteJson").value.trim();
+  if (!raw) {
+    err.textContent = "Nothing to download yet — run Extract & score locally, or paste JSON into step 2, first.";
+    err.style.display = "block"; return;
+  }
+  downloadText("mpef-extraction.json", raw);
+});
+
+/* self-contained HTML snapshot of the rendered report -- reuses the page's
+   own <style> block so the downloaded file needs nothing else to display
+   correctly, matching the app's own single-file, offline design. */
+function downloadReportHtml() {
+  const styleTag = document.querySelector("style");
+  const css = styleTag ? styleTag.outerHTML : "";
+  const h1 = document.querySelector("#report h1");
+  const titleTxt = h1 ? h1.textContent : "MPEF Report";
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(titleTxt)} — MPEF report</title>${css}</head>
+<body><div class="wrap" style="padding:22px 0 60px">${document.getElementById("report").innerHTML}</div></body></html>`;
+  const slug = (titleTxt || "mpef-report").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  downloadText((slug || "mpef-report") + "-mpef-report.html", html);
+}
 
 /* ================= built-in local extraction engine (deterministic, offline) ================= */
 const RX = {
@@ -1076,7 +1133,7 @@ function render(r) {
       normalization <code>clamp(100·(v−worst)/(best−worst))</code> · MPI re-weighted over assessable dimensions ·
       Gini computed exactly on sorted talk minutes · sentiment excluded · identical inputs + config ⇒ identical scores.
       <pre>${esc(JSON.stringify({weights: CONFIG.weights, bands: CONFIG.bands, mpiBands: CONFIG.mpiBands}, null, 1))}</pre>
-      <div style="margin-top:8px"><button class="btn btn-ghost" onclick="window.print()">Print / save as PDF</button></div>
+      <div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ghost" onclick="window.print()">Print / save as PDF</button><button class="btn btn-ghost" onclick="downloadReportHtml()">Download report (.html)</button></div>
     </div>`);
 
   $("report").innerHTML = hero + meters + mtable + agenda + presenters + parts + outcomes + flags + method;

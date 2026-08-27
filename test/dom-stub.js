@@ -24,10 +24,11 @@ const KNOWN_IDS = [
   "runState", "mTitle", "mDate", "mStart", "mSched", "mInv", "anonToggle",
   "aAgenda", "aTrans", "aMom", "aChat", "aAtt",
   "localBtn", "demoBtn", "errBox", "noteBox",
-  "copyPromptBtn", "savePromptBtn", "pasteJson", "scoreJsonBtn",
+  "copyPromptBtn", "savePromptBtn", "pasteJson", "scoreJsonBtn", "downloadJsonBtn",
   "artBox", "dash", "emptyState", "report",
   "fPriorDue", "fPriorClosed", "fPriorTopics", "fPriorRecur",
   "fDead", "fOffAgenda", "fTotalTalk", "fInterrupt",
+  "file_aAgenda", "file_aTrans", "file_aMom", "file_aChat", "file_aAtt", "fileJson",
 ];
 
 // Extracts the <script>...</script> body from the app HTML file.
