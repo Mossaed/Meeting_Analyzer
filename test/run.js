@@ -429,6 +429,11 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
   check("header stamp reads 'engine v1.3'", () =>
     assertTrue(/engine v1\.3/.test(html), "version stamp not found"));
 }
+{
+  const { sandbox } = boot(APP_PATH);
+  check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
+    assertEqual(sandbox.ENGINE_VERSION, "1.3"));
+}
 
 // ---------------------------------------------------------------------
 console.log("\n" + "=".repeat(60));

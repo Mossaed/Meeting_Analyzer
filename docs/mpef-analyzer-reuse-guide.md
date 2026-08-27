@@ -47,7 +47,7 @@ These exist so scores are never artifacts of note-taking; they are the answer to
 6. **Sample-size transparency.** Ratio metrics display their counts (e.g. `100% · 1/1`); tiny denominators can legitimately score 0 or 100 and are visibly thin.
 7. **Not-a-name guard.** Lines like `Decision: …` or `Action: …` are never mistaken for speakers.
 
-The flags panel states every rule that fired and why.
+The flags panel states which of these rules fired and why, prioritizing meeting-specific findings over generic ones when more than the agent spec's 6-note budget fire in one run (§2 of the agent spec: "notes <=6").
 
 ## 5. Deploying to other environments
 
@@ -102,7 +102,7 @@ Other tuning points, each clearly labeled in the source: `RX` (regex lexicons fo
 
 Open the file and confirm the dark header reads **engine v1.3** — the filename never changes between versions, so this stamp is the only reliable build check. Then press **Sample → Extract & score locally**: on an unmodified v1.3 build this deterministically renders **MPI 75 · Productive**, six scored dimensions, and a flags panel that includes the condensed-transcript disclosure. Full acceptance steps live in the companion checklist.
 
-For the offline edition you can additionally prove network silence: search the file for `http` — the only permitted match is none at all (`fetch(` must not appear); or open it with the browser's network tab recording and confirm zero requests beyond the file itself.
+For the offline edition you can additionally prove network silence: search the file for `fetch(` — the only permitted match is none at all. (A bare search for `http` is not the right test: the file legitimately contains a URL-detection regex, `/^https?/i`, used to keep a pasted link from being mistaken for a speaker name.) Or open it with the browser's network tab recording and confirm zero requests beyond the file itself.
 
 ## 8. Troubleshooting
 
@@ -126,11 +126,26 @@ For the offline edition you can additionally prove network silence: search the f
 
 ## 10. Data handling
 
-All parsing, scoring, and rendering happen in the browser tab. The offline edition performs zero network activity by construction. The connected edition transmits pasted artifacts to the model **only** when the user presses "Analyze with Claude". No cookies, no localStorage, no analytics; closing the tab erases everything. Reports can be anonymized upstream by replacing names in the artifacts (or via the agent spec's anonymize option in multi-agent deployments).
+All parsing, scoring, and rendering happen in the browser tab. The offline edition performs zero network activity by construction. The connected edition transmits pasted artifacts to the model **only** when the user presses "Analyze with Claude". No cookies, no localStorage, no analytics; closing the tab erases everything. Reports can be anonymized upstream by replacing names in the artifacts, or with the **Anonymize participants** checkbox on the Meeting card, which renders the Participation table as P1, P2… (agent spec §1/§5) — presenter names and decision/action owners are intentionally left as-is, since the spec names only the participation table as anonymizable.
 
 ## 11. Companion assets (optional full-stack kit)
 
-`meeting-performance-evaluation-framework.md` (the framework, source of truth) · `mpef-agent-spec.md` (system prompt + schema + scoring spec for any agentic platform) · `mpef-meeting-scorecard.xlsx` (auto-calculating workbook, same defaults) · `mpef-framework-deck.pptx` (10-slide executive deck). Redeploying the whole methodology in a new org means shipping these four plus one app edition, then calibrating the shared config once.
+`meeting-performance-evaluation-framework.md` (the framework, source of truth — not yet included in this repository) · `mpef-agent-spec.md` (system prompt + schema + scoring spec for any agentic platform) · `mpef-meeting-scorecard.xlsx` (auto-calculating workbook, same defaults) · `mpef-framework-deck.pptx` (10-slide executive deck — not yet included). Redeploying the whole methodology in a new org means shipping these four plus one app edition, then calibrating the shared config once.
+
+## 12. Fixes and additions in this repository (since the uploaded v1.3 build)
+
+Cross-checking the app against `mpef-agent-spec.md` and `mpef-meeting-scorecard.xlsx` (§3 of both) surfaced a handful of gaps, closed without changing any scoring formula, weight, or band:
+
+- **D7 Follow-Through** (spec §3: prior-action closure, topic recurrence) is now scored from an optional "Advanced evidence" card — weight 0, deliberately excluded from the per-dimension average and the MPI, verified against the workbook's own D7 numbers.
+- **Flag evidence citations** (spec §1/§5: "citing a timestamp or line reference for every figure and flag") — the `agenda_items` schema gained an `evidence` field, and unresolved-item / missing-owner / decision-not-made flags now cite it.
+- **Anonymize toggle** — see §10 above.
+- **Manual dead time / off-agenda / interruption-rate inputs** — these three metrics are honesty-gated (§4 above) and the local route could never populate them; a user who has the real numbers from an audio pipeline can now enter them directly, same override precedence as scheduled minutes and invitee count (extraction JSON wins if it already has the field, the manual input is the fallback).
+- **File import** for all five artifacts and the step-2 JSON box, plus **download extraction JSON** and **download report (.html)** — the downloaded report is a self-contained snapshot (embeds the page's own stylesheet) that renders identically opened standalone, with no dependency on the app itself.
+- **Two Route-B correctness bugs**, found by scoring pasted JSON against a leftover browser tab: `compute()` was reading the attendance textarea's raw text as a fallback signal, letting attendance/active-contributor metrics score off speaker-only evidence in violation of the attendance-grounding gate; and the "Minutes/Chat/Attendance not provided" flags read the intake textareas instead of the JSON actually being scored, so they could contradict data the JSON supplied. Both now derive strictly from the extraction payload.
+- **Honesty-note prioritization** — the local engine can fire more disclosures than the spec's 6-note budget allows; they are now dropped by priority (a meeting-specific honesty-gate finding always survives ahead of generic boilerplate) instead of arbitrary push order.
+- **A regression suite** (`test/run.js`, no dependencies) pins two golden fixtures — the app's own Sample meeting (MPI 75.13) and the workbook's example meeting (MPI 77.167458, all 27 metrics matched to the workbook's cached formula results to 1e-6) — plus the six evidence-honesty gates, seven transcript formats, and the fixes above.
+
+Two items were investigated and deliberately **not** changed: the workbook's Gini coefficient uses a rank-based tie-handling approximation that can overstate speaking balance by 15–17 points when talk times tie (the app computes it exactly); and the sequence-adherence / pace-deviation metrics are position-match and average-WPM proxies in both the app and the workbook, standing in for the framework's LCS and per-minute in-band-share measures respectively (`meeting-performance-evaluation-framework.md` was not available to confirm whether either implementation already matches it). Both are documented in the app's own method footer.
 
 ---
 *Provided for internal reuse and redistribution by your organization. Keep this guide and the checklist alongside the app file so every recipient can self-serve.*

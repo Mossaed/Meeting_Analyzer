@@ -73,7 +73,7 @@ function boot(htmlPath) {
   // localExtract, normalizeTranscript, ...), which vm attaches directly.
   // Pull the const-bound identifiers the tests need across onto sandbox too,
   // by resolving them as a second script in the same context.
-  const CONST_NAMES = ["CONFIG", "isName", "bandOf", "bandColor", "RX", "NOTNAME", "STOPW"];
+  const CONST_NAMES = ["CONFIG", "isName", "bandOf", "bandColor", "RX", "NOTNAME", "STOPW", "ENGINE_VERSION"];
   const resolved = vm.runInContext(
     "({" + CONST_NAMES.map(n => n + ": typeof " + n + " !== 'undefined' ? " + n + " : undefined").join(",") + "})",
     sandbox

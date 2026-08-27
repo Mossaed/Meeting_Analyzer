@@ -134,9 +134,9 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 <header>
   <div class="wrap hd">
     <div class="mark">MPEF <b>Analyzer</b></div>
-    <div class="sub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere · engine v1.3</div>
+    <div class="sub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere · <span id="engineVerStamp">engine v1.3</span></div>
     <div class="spacer"></div>
-    <div class="state" id="runState">offline-ready</div>
+    <div class="state" id="runState" aria-live="polite">offline-ready</div>
   </div>
 </header>
 
@@ -183,8 +183,8 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
           <button class="btn btn-run" id="localBtn">Extract &amp; score locally</button>
           <button class="btn btn-ghost" id="demoBtn" title="Load a small sample meeting">Sample</button>
         </div>
-        <div class="err" id="errBox"></div>
-        <div class="note" id="noteBox"></div>
+        <div class="err" id="errBox" role="alert" aria-live="assertive"></div>
+        <div class="note" id="noteBox" aria-live="polite"></div>
         <div class="offline">
           <div class="ofhd">Any-AI route <span>for higher-quality extraction</span></div>
           <div class="ofsub">Copy the extraction prompt, run it in any AI chat when convenient, paste the JSON it returns, and score locally. Local extraction also drops its JSON below so you can inspect, correct, and re-score.</div>
@@ -239,10 +239,17 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
       Agenda + transcript are enough for a first score. Minutes, chat and attendance each unlock further metrics.<br>
       The report renders here: MPI gauge, six dimension meters, agenda coverage, presenters, participation, outcomes and flags — every figure with its evidence.
     </div>
-    <div id="report" style="display:none"></div>
+    <div id="report" style="display:none" tabindex="-1"></div>
   </main>
 </div>
 <script>
+/* Single source for the build stamp shown in the header and the method
+   footer -- the filename never changes between versions (reuse guide sec7
+   / sec8), so this constant is the only reliable place to bump it. */
+const ENGINE_VERSION = "1.3";
+const engineVerEl = document.getElementById("engineVerStamp");
+if (engineVerEl) engineVerEl.textContent = "engine v" + ENGINE_VERSION;
+
 /* ================= CONFIG — identical defaults to the MPEF workbook ================= */
 const CONFIG = {
   weights: { D1:20, D2:15, D3:20, D4:20, D5:10, D6:15 },
@@ -1129,9 +1136,11 @@ function render(r) {
       : `<div class="flag"><span class="sev" style="background:var(--green)"></span><span>No flags raised.</span></div>`));
 
   const method = card("Method & configuration", "printed for audit", `<div class="foot">
-      Engine v1.3 — extraction: built-in local rule engine (fully offline), or any AI via the copy-prompt route — all scores computed on-device by deterministic code ·
+      Engine v${ENGINE_VERSION} — extraction: built-in local rule engine (fully offline), or any AI via the copy-prompt route — all scores computed on-device by deterministic code ·
       normalization <code>clamp(100·(v−worst)/(best−worst))</code> · MPI re-weighted over assessable dimensions ·
-      Gini computed exactly on sorted talk minutes · sentiment excluded · identical inputs + config ⇒ identical scores.
+      Gini computed exactly on sorted talk minutes (the companion workbook uses a rank-based approximation that can overstate speaking balance when talk times tie — see docs/mpef-analyzer-reuse-guide.md) ·
+      sequence adherence is a planned-vs-actual position-match proxy for the framework's LCS measure · pace deviation is an average-WPM proxy for per-minute in-band share (both proxies match the companion workbook) ·
+      sentiment excluded · identical inputs + config ⇒ identical scores.
       <pre>${esc(JSON.stringify({weights: CONFIG.weights, bands: CONFIG.bands, mpiBands: CONFIG.mpiBands}, null, 1))}</pre>
       <div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ghost" onclick="window.print()">Print / save as PDF</button><button class="btn btn-ghost" onclick="downloadReportHtml()">Download report (.html)</button></div>
     </div>`);
@@ -1141,6 +1150,11 @@ function render(r) {
   $("report").style.display = "flex";
   $("report").style.flexDirection = "column";
   $("report").style.gap = "18px";
+  /* move focus to the freshly-rendered report so keyboard/screen-reader
+     users land on the new content instead of staying on the run button;
+     tabindex="-1" on #report makes it programmatically focusable without
+     joining the normal tab order. */
+  $("report").focus();
 }
 
 /* ================= run ================= */
