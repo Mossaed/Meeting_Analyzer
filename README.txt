@@ -10,14 +10,14 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v1.3" - the filename never changes
+3. The dark header should read "engine v1.4" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
 QUICK START
 - Press "Sample" to load a demo meeting, then "Extract & score locally"
   to see the full dashboard. On an unmodified build this always renders
-  MPI 75 - Productive.
+  MPI 70.92 - Productive.
 - For your own meeting: fill the meeting details, then paste (or use the
   small "Import file" link to load from disk) the agenda and transcript -
   minutes, chat and attendance are optional but unlock more metrics -
@@ -44,9 +44,16 @@ GOOD TO KNOW
 - The extraction JSON appears in an editable box, so you can correct any
   count and re-score instantly. "Download extraction JSON" saves it, or
   "Import file" loads a previously-saved one back in.
-- Dead time, off-agenda minutes, and interruption rate can never be read
-  from text - if you have them from a recording, the "Advanced evidence"
-  section on the left lets you enter them by hand to unlock those metrics.
+- Agenda lines can list more than one presenter, e.g.
+  "3. Launch go/no-go - Lina & Marco - 10 min" - both get credited.
+- Off-agenda ratio is estimated by keyword matching against your agenda
+  (an approximation, always flagged as such - not true topic understanding).
+  Dead time and interruption rate still can't be read from text at all -
+  if you have them from a recording, the "Advanced evidence" section on
+  the left lets you enter them by hand to unlock those metrics.
+- Decisions show the full statement and who said it, not a clipped
+  fragment. Unanswered and deferred questions are listed by name in the
+  flags panel, not just counted.
 - Nothing is saved between sessions and nothing ever leaves your device.
 - Use "Print / save as PDF", or "Download report (.html)" for a
   standalone copy, at the bottom of a report to keep or share results.

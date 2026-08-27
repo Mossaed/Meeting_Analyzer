@@ -1,6 +1,6 @@
 # MPEF Analyzer — Reuse & Redeployment Guide
 
-**Applies to:** engine v1.3 · offline edition (`mpef-analyzer-offline.html`) and connected edition (`mpef-analyzer.html`)
+**Applies to:** engine v1.4 · offline edition (`mpef-analyzer-offline.html`) and connected edition (`mpef-analyzer.html`)
 **Audience:** anyone who wants to run, distribute, customize, or redeploy the app in a new environment.
 
 ---
@@ -35,7 +35,7 @@ Scoring code and configuration are identical in both, so the same evidence produ
 
 The local engine also writes its extraction JSON into the editable step-2 box, so users can inspect, correct any count, and re-score instantly — regardless of route.
 
-## 4. Honest-measurement rules built into v1.3
+## 4. Honest-measurement rules built into v1.4
 
 These exist so scores are never artifacts of note-taking; they are the answer to "why is this metric n/a?":
 
@@ -43,9 +43,10 @@ These exist so scores are never artifacts of note-taking; they are the answer to
 2. **Timestamp resolution.** Response latency requires second-level timestamps (`HH:MM:SS`); minute-level stamps mark it n/a.
 3. **Attendance grounding.** Attendance rate, retention, and active-contributor ratio require attendance data (log pasted, or `minutes_present` in pasted JSON) — silent attendees are invisible in a transcript, so speaker-only data would fake these.
 4. **Audio-only signals.** Dead time / silence and interruption overlaps are never scored from text.
-5. **Semantic limits.** Off-agenda ratio is n/a under local rules (needs semantic topic mapping — Route B/C provide it).
-6. **Sample-size transparency.** Ratio metrics display their counts (e.g. `100% · 1/1`); tiny denominators can legitimately score 0 or 100 and are visibly thin.
-7. **Not-a-name guard.** Lines like `Decision: …` or `Action: …` are never mistaken for speakers.
+5. **Off-agenda by keyword proximity (v1.4).** Local extraction scores off-agenda ratio by classifying each substantive utterance (≥8 words, so backchannel is never judged) as off-agenda when it matches none of the agenda's keywords — always with a disclosure note that this is proximity matching, not semantic understanding. A manually-entered value (Advanced evidence card) always overrides it. Route B/C still provide true semantic mapping.
+6. **Zero-count honesty (v1.4).** A detector finding nothing is absence of evidence, not evidence of zero: `feedback_instances` is Not Assessable (not a scored 0) when no praise/agreement phrases are detected, and an agenda item the keyword matcher can't locate is Not Assessable on its own time-adherence — but still counts as not-covered for Coverage rate, which is a real finding.
+7. **Sample-size transparency.** Ratio metrics display their counts (e.g. `100% · 1/1`); tiny denominators can legitimately score 0 or 100 and are visibly thin.
+8. **Not-a-name guard.** Lines like `Decision: …` or `Action: …` are never mistaken for speakers.
 
 The flags panel states which of these rules fired and why, prioritizing meeting-specific findings over generic ones when more than the agent spec's 6-note budget fire in one run (§2 of the agent spec: "notes <=6").
 
@@ -100,7 +101,7 @@ Other tuning points, each clearly labeled in the source: `RX` (regex lexicons fo
 
 ## 7. Verifying a deployment
 
-Open the file and confirm the dark header reads **engine v1.3** — the filename never changes between versions, so this stamp is the only reliable build check. Then press **Sample → Extract & score locally**: on an unmodified v1.3 build this deterministically renders **MPI 75 · Productive**, six scored dimensions, and a flags panel that includes the condensed-transcript disclosure. Full acceptance steps live in the companion checklist.
+Open the file and confirm the dark header reads **engine v1.4** — the filename never changes between versions, so this stamp is the only reliable build check. Then press **Sample → Extract & score locally**: on an unmodified v1.4 build this deterministically renders **MPI 70.92 · Productive**, six scored dimensions, and a flags panel that includes the condensed-transcript and off-agenda-keyword-matching disclosures. Full acceptance steps live in the companion checklist.
 
 For the offline edition you can additionally prove network silence: search the file for `fetch(` — the only permitted match is none at all. (A bare search for `http` is not the right test: the file legitimately contains a URL-detection regex, `/^https?/i`, used to keep a pasted link from being mistaken for a speaker name.) Or open it with the browser's network tab recording and confirm zero requests beyond the file itself.
 
@@ -108,7 +109,7 @@ For the offline edition you can additionally prove network silence: search the f
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Header doesn't say engine v1.3 | Stale copy (identical filename) | Replace the file; re-share the zip |
+| Header doesn't say engine v1.4 | Stale copy (identical filename) | Replace the file; re-share the zip |
 | "Couldn't parse any utterances" | Unrecognized transcript layout | Use `[10:04] Name: text` lines, or paste the raw platform export (VTT/SRT/Teams are auto-detected) |
 | Many metrics show n/a | Honest-measurement rules (§4) fired | Read the flags panel; supply richer artifacts (verbatim transcript, second-level timestamps, attendance log) or use Route B |
 | Scores look extreme (0/100) with counts like 1/1 | Genuine tiny-sample ratios | Judge by the printed counts; more countable events → finer scores |
@@ -119,6 +120,7 @@ For the offline edition you can additionally prove network silence: search the f
 
 ## 9. Version history
 
+**v1.4** — multi-presenter agenda items, credited and disclosed rather than silently dropped; off-agenda ratio scored locally by disclosed keyword-proximity approximation instead of permanently n/a; zero-count honesty gate (a detector finding nothing is Not Assessable, never a scored 0) applied to feedback instances and to agenda items a matcher couldn't locate; full untruncated decision text with speaker attribution; unanswered/deferred questions named individually in the flags panel. Moves the Sample acceptance value from MPI 75.13 to **MPI 70.92**.
 **v1.3** — WebVTT/SRT/Teams normalization; caption-only (no-speaker) fallback; not-a-name guard; Save-as-.txt for huge prompts; 3-token speaker names.
 **v1.2** — attendance/active gating on real attendance data; counts shown beside ratio metrics; version stamp.
 **v1.1** — condensed-transcript and timestamp-resolution gates; off-agenda/dead-time honesty; large-input hardening (337k chars ≈ 0.05–0.2 s); size-limit auto-fallback and unhandled-rejection fix (connected).
@@ -143,9 +145,21 @@ Cross-checking the app against `mpef-agent-spec.md` and `mpef-meeting-scorecard.
 - **File import** for all five artifacts and the step-2 JSON box, plus **download extraction JSON** and **download report (.html)** — the downloaded report is a self-contained snapshot (embeds the page's own stylesheet) that renders identically opened standalone, with no dependency on the app itself.
 - **Two Route-B correctness bugs**, found by scoring pasted JSON against a leftover browser tab: `compute()` was reading the attendance textarea's raw text as a fallback signal, letting attendance/active-contributor metrics score off speaker-only evidence in violation of the attendance-grounding gate; and the "Minutes/Chat/Attendance not provided" flags read the intake textareas instead of the JSON actually being scored, so they could contradict data the JSON supplied. Both now derive strictly from the extraction payload.
 - **Honesty-note prioritization** — the local engine can fire more disclosures than the spec's 6-note budget allows; they are now dropped by priority (a meeting-specific honesty-gate finding always survives ahead of generic boilerplate) instead of arbitrary push order.
-- **A regression suite** (`test/run.js`, no dependencies) pins two golden fixtures — the app's own Sample meeting (MPI 75.13) and the workbook's example meeting (MPI 77.167458, all 27 metrics matched to the workbook's cached formula results to 1e-6) — plus the six evidence-honesty gates, seven transcript formats, and the fixes above.
+- **A regression suite** (`test/run.js`, no dependencies) pinned two golden fixtures at the time — the app's own Sample meeting (MPI 75.13, since moved to 70.92 by §13 below) and the workbook's example meeting (MPI 77.167458, all 27 metrics matched to the workbook's cached formula results to 1e-6) — plus the six evidence-honesty gates, seven transcript formats, and the fixes above.
 
 Two items were investigated and deliberately **not** changed: the workbook's Gini coefficient uses a rank-based tie-handling approximation that can overstate speaking balance by 15–17 points when talk times tie (the app computes it exactly); and the sequence-adherence / pace-deviation metrics are position-match and average-WPM proxies in both the app and the workbook, standing in for the framework's LCS and per-minute in-band-share measures respectively (`meeting-performance-evaluation-framework.md` was not available to confirm whether either implementation already matches it). Both are documented in the app's own method footer.
+
+## 13. Engine v1.4 changes (multi-presenter, honesty gates, decisions, questions, off-agenda)
+
+A second pass, driven by real usage, closed five more gaps — again without touching any weight or band:
+
+- **Multi-presenter agenda items.** `lxParseAgenda()` used to keep a single owner string; `"Sara & Amir"` was stored verbatim and then failed the speaker-match entirely, silently dropping both presenters. Owner segments are now split into an `owners` array (`&`, `,`, `and`), each name validated individually, so **every** matched speaker is credited — each against the item's full planned minutes, with a disclosure note whenever an item has 2+ presenters (splitting evenly instead is a one-line change if you'd rather divide the planned time). `owners` is now part of the extraction schema and shown as a Presenter column in the Agenda coverage map.
+- **Zero-count honesty gate.** `feedback_instances` used to always be a number — `0` when the detector found nothing — which scored a hard 0/100 on band `[0,8]` and could drag D5 down at weight 10 on no real evidence. It's now `null` when nothing is detected, dropping the metric out of D5 with a disclosure note, the same pattern already used for question-resolution. The same fix applies to agenda items the keyword matcher couldn't locate: they now count as **not covered** for Coverage rate (a real finding) but their own time adherence is Not Assessable rather than a false 0.
+- **Decisions: full text + speaker.** The 80-character clip on decision text is gone — decisions render as complete sentences, wrapping in the Decisions card — and each now carries the speaker who stated it (`outcomes.decisions[].speaker`), shown as a bold prefix, matching how actions already show their owner. Decision speakers are never anonymized, consistent with action owners.
+- **Questions named in Flags.** Unanswered and deferred questions used to render as a bare count ("3 questions left unanswered"). A new `interaction.questions[]` array (text, asker, status, responder, evidence) lets the flags panel list each one individually with its evidence citation. Answered questions remain a count. This also fixed an honesty-gate bug: on transcripts with no speaker labels, `questions_answered`/`questions_deferred` are correctly `null`, but the unanswered-count flag coerced that to 0 and flagged **every** question high-severity — directly contradicting the "not assessable" note fired in the same run. It now correctly reports Not Assessable.
+- **Off-agenda by keyword matching.** Local extraction scored this permanently Not Assessable, reasoning that true off-agenda detection needs semantic understanding the keyword engine doesn't have. Per user request it's now scored anyway: each substantive utterance (≥8 words) that matches none of the agenda's keywords counts as off-agenda time, always accompanied by a disclosure note that this is proximity matching, not semantic analysis. A manually-entered value (Advanced evidence card) still takes precedence. This activates a fourth D1 metric that was previously always excluded, which is why the Sample acceptance MPI moved from 75.13 to **70.92**.
+- **Two bugs found and fixed along the way**, both in code this pass already touched: two agenda items whose keywords matched the *same* utterance used to produce an empty span and crash on `evi(undefined)` — utterance anchors are now guaranteed unique; and the unanswered-question flag's `||0` coercion (above) that defeated the no-speaker-labels honesty gate.
+- The regression suite grew to 127 checks (`test/run.js`) covering every item above, including both incidental-bug regressions.
 
 ---
 *Provided for internal reuse and redistribution by your organization. Keep this guide and the checklist alongside the app file so every recipient can self-serve.*

@@ -1,8 +1,8 @@
-# MPEF Analyzer Agent — Deployment Specification v1.3
+# MPEF Analyzer Agent — Deployment Specification v1.4
 
 A self-contained specification for deploying the Meeting Performance Evaluation Framework (MPEF v1.0) as an agent on any agentic AI platform. Paste §1 as the system prompt, wire §2 as the extraction contract, implement §3 as a code tool (never model output), operate per §4, and render §5.
 
-**v1.3 alignment.** This revision matches analyzer engine v1.3 and folds in the field-hardening learned from real transcripts: platform-export normalization, evidence-honesty gates that stop unmeasurable metrics from scoring 0/100, sample-size disclosure, constrained-output resilience, and a third (no-LLM) deployment mode. Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
+**v1.4 alignment.** This revision matches analyzer engine v1.4: multi-presenter agenda items, a keyword-proximity off-agenda approximation for Mode 3 (disclosed, never presented as semantic analysis), the zero-count honesty gate (a detector finding nothing is Not Assessable, never a scored zero), full decision text with speaker attribution, and individually-named questions in the flags panel. Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
 
 ---
 
@@ -53,8 +53,22 @@ EVIDENCE-HONESTY GATES (apply before any metric is scored)
   attendees are invisible.
 - Audio-only signals: dead time / silence and interruption overlaps are never
   derived from text; they require the recording pipeline.
-- Off-agenda ratio requires semantic topic mapping (stage S3). Keyword-only
-  pipelines must mark it Not Assessable rather than approximate it.
+- Off-agenda ratio ideally requires semantic topic mapping (stage S3). A
+  keyword-only pipeline (Mode 3) MAY score it as a disclosed approximation
+  instead of leaving it permanently Not Assessable — classify each substantive
+  utterance (a minimum-length floor, so backchannel isn't judged) as off-agenda
+  when it matches none of the agenda's keywords — but only ever presented with
+  an explicit data-quality note stating it is keyword proximity, never semantic
+  understanding. A manually-supplied off-agenda figure always overrides the
+  approximation.
+- Zero-count honesty: a detector finding nothing (e.g. no praise/agreement
+  phrases) is absence of evidence, not evidence of zero. Emit `null`, not `0`,
+  for any count-type field where the detector may simply not have fired —
+  scoring a false zero on a 0→best band silently drags a whole dimension down
+  on no real evidence. The same applies to an agenda item a matcher could not
+  locate in the transcript: it still counts as not-covered for coverage
+  purposes, but its own actual-vs-planned timing is Not Assessable, not a
+  measured 0.
 - Sample size: every ratio you extract must keep its raw counts so the report
   can print them (e.g. "100% · 1/1"); tiny denominators legitimately score 0
   or 100 and must be visibly thin.
@@ -103,7 +117,8 @@ The extraction stages must emit exactly this JSON. `null` means "not derivable f
     "title": "", "planned_minutes": null, "planned_order": 1,
     "actual_minutes": null, "actual_order": null,
     "substantive": true, "decision_expected": false,
-    "decision_made": false, "closed": false, "evidence": "t=00:00"
+    "decision_made": false, "closed": false, "evidence": "t=00:00",
+    "owners": null
   }],
   "participants": [{
     "name": "", "present": true, "minutes_present": null, "talk_minutes": null,
@@ -117,20 +132,21 @@ The extraction stages must emit exactly this JSON. `null` means "not derivable f
   }],
   "interaction": {
     "questions_raised": 0, "questions_answered": 0, "questions_deferred": 0,
-    "feedback_instances": 0, "chat_substantive_messages": null,
+    "questions": null,
+    "feedback_instances": null, "chat_substantive_messages": null,
     "interruptions_per_10min": null, "turns_per_10min": null
   },
   "outcomes": {
     "actions_total": 0, "actions_with_owner_and_due": 0,
     "transcript_items": 0, "mom_items": null, "matched_items": null,
-    "decisions": [{ "text": "", "evidence": "t=00:00" }],
+    "decisions": [{ "text": "", "speaker": null, "evidence": "t=00:00" }],
     "actions":   [{ "text": "", "owner": null, "due": null, "evidence": "t=00:00" }]
   },
   "quality": { "has_timestamps": false, "has_speaker_labels": false, "notes": [] }
 }
 ```
 
-Field semantics worth enforcing: `questions_answered` / `questions_deferred` are `null` (not 0) when speaker pairing is impossible; `words` and `filler_words` are `null` on condensed transcripts; evidence strings stay ≤ 14 chars (`t=10:31` or `L14`); caps of ≤12 agenda items, ≤12 participants, ≤6 presenters, ≤6 decisions, ≤8 actions, ≤6 notes keep constrained outputs safe.
+Field semantics worth enforcing: `questions_answered` / `questions_deferred` are `null` (not 0) when speaker pairing is impossible; `words` and `filler_words` are `null` on condensed transcripts; `feedback_instances` is `null` (not 0) whenever the detector found no instances at all — a zero count that reflects a real, positively-identified absence is the rare exception, not the default (see the zero-count honesty gate above); `agenda_items[].owners` is every presenter named for that item (an item may list more than one), `null` if none named; `outcomes.decisions[].speaker` is whoever stated the decision, `null` if unclear; `interaction.questions` is an array of `{text, asker, status: "answered"|"deferred"|"unanswered", responder, evidence}` — one entry per question raised — or `null` when speaker pairing is impossible, mirroring `questions_answered`/`questions_deferred`. Evidence strings stay ≤ 14 chars (`t=10:31` or `L14`); caps of ≤12 agenda items, ≤12 participants, ≤6 presenters, ≤6 decisions, ≤8 actions, ≤12 questions, ≤6 notes keep constrained outputs safe.
 
 ## 3. Scoring tool (implement as code)
 
@@ -190,11 +206,11 @@ Learned in production and required for reliability:
 
 1. **Header** — meeting, date, duration vs scheduled, attendance, **MPI + band**
 2. **Dimension scorecard** — six scores with weights; Not Assessable rows flagged
-3. **Agenda coverage map** — per item: planned vs actual minutes, order, status
-4. **Presenter table** — one row per presenter, all D3 metrics
+3. **Agenda coverage map** — per item: presenter(s) (an item may list more than one — credit and disclose accordingly, per §1 DIVISION OF LABOR and the D3 scoring notes in §3), planned vs actual minutes, order, status
+4. **Presenter table** — one row per presenter, all D3 metrics; a co-presented item contributes to every named presenter's row
 5. **Participation table** — anonymizable; talk share, contribution mix
-6. **Decisions & actions register** — text, owner, due date, evidence reference
-7. **Flags** — unanswered questions, overruns, unresolved items, MoM gaps, and every fired assessability gate; each with evidence
+6. **Decisions & actions register** — full decision text (never summarized or clipped) with the speaker who stated it; action text, owner, due date; evidence reference on every entry
+7. **Flags** — unanswered and deferred questions listed individually by full text (not just a count), overruns, unresolved items, MoM gaps, and every fired assessability gate; each with evidence
 8. **Data-quality note + configuration** — artifacts received, format detected, transcript coverage %, timestamp resolution, proxies used, full config
 
 Ratio metrics print their counts (e.g. `Decision yield 100% · 1/1`) so thin evidence is visible.
@@ -211,5 +227,6 @@ Ratio metrics print their counts (e.g. `Decision yield 100% · 1/1`) so thin evi
 
 ## 7. Changelog
 
+**v1.4** — multi-presenter agenda items (`agenda_items[].owners`, credited and disclosed rather than silently dropped); off-agenda ratio scored by disclosed keyword-proximity approximation in Mode 3 instead of permanently Not Assessable; zero-count honesty gate (a detector finding nothing emits `null`, never a scored `0`) applied to `feedback_instances` and to agenda items a matcher couldn't locate; full decision text with `speaker` attribution, never clipped; `interaction.questions[]` so unanswered/deferred questions are named individually in flags, not just counted.
 **v1.3** — input normalization for WebVTT/SRT/Teams exports; caption-only fallback; not-a-name guard; evidence-honesty gates (condensed transcripts, timestamp resolution, attendance grounding, audio-only signals, semantic off-agenda); counts beside ratios; robust-operation section (splitting, JSON repair, retries, oversize fallback); deterministic-extractor deployment mode.
 **v1.0** — initial specification: role, pipeline, schema, scoring config, report template, single/multi-agent modes.
