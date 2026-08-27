@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MPEF Analyzer — offline edition</title>
+<style>
+:root{
+  --bg:#F6F8FA; --surface:#FFFFFF; --ink:#101828; --muted:#667085; --line:#E4E9F1;
+  --teal:#0E9384; --teal-ink:#0B7568; --navy:#1D2939; --ice:#EAF1F8;
+  --green:#2E9E63; --amber:#F2A93B; --coral:#E8604C; --red:#C43D3D;
+  --disp:'Avenir Next','Segoe UI','Trebuchet MS',system-ui,sans-serif; --body:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; --mono:ui-monospace,'SF Mono','Cascadia Mono',Consolas,Menlo,'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{transition:none!important;animation:none!important}}
+body{font-family:var(--body);background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+button{font-family:var(--body)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+
+/* header */
+header{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;border-bottom:3px solid var(--teal)}
+.hd{display:flex;align-items:center;gap:14px;padding:12px 0}
+.hd .mark{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:.02em}
+.hd .mark b{color:#5AC9BC}
+.hd .sub{font-size:11.5px;color:#B9C6DB;border-left:1px solid #3A4C68;padding-left:14px}
+.hd .spacer{flex:1}
+.hd .state{font-family:var(--mono);font-size:11px;color:#8FE0D6;background:#16332F;border:1px solid #1E4A44;padding:4px 10px;border-radius:99px}
+
+/* layout */
+.grid{display:grid;grid-template-columns:370px 1fr;gap:22px;padding:22px 0 60px}
+@media(max-width:960px){.grid{grid-template-columns:1fr}}
+
+/* intake */
+.intake{align-self:start;position:sticky;top:72px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 90px);overflow:auto;padding-right:2px}
+@media(max-width:960px){.intake{position:static;max-height:none}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.card .cap{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.card .cap h2{font-family:var(--disp);font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--navy)}
+.card .cap .tag{margin-left:auto;font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.card .bd{padding:14px 16px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.02em}
+input[type=text],input[type=number],input[type=date]{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-family:var(--body);font-size:13px;color:var(--ink);background:#FBFCFE}
+textarea{width:100%;min-height:86px;resize:vertical;padding:9px 10px;border:1px solid var(--line);border-radius:7px;font-family:var(--mono);font-size:11.5px;line-height:1.45;color:var(--ink);background:#FBFCFE}
+input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal)}
+.art{margin-bottom:12px}
+.art .lr{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+.art .lr label{margin:0}
+.art .req{font-size:9.5px;font-weight:600;color:var(--teal-ink);background:#E3F3F0;border-radius:4px;padding:1px 6px;letter-spacing:.05em}
+.art .opt{font-size:9.5px;font-weight:600;color:var(--muted);background:#EFF2F6;border-radius:4px;padding:1px 6px;letter-spacing:.05em}
+.art .st{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.art .st.ok{color:var(--teal-ink)}
+.runbar{display:flex;gap:10px;align-items:center}
+.btn{appearance:none;border:0;cursor:pointer;border-radius:8px;padding:11px 18px;font-weight:600;font-size:13.5px}
+.btn-run{flex:1;background:var(--teal);color:#fff}
+.btn-run:hover{background:var(--teal-ink)}
+.btn-run:disabled{background:#9DB4B0;cursor:wait}
+.btn-ghost{background:#fff;border:1px solid var(--line);color:var(--navy)}
+.hint{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
+.note{display:none;margin-top:10px;border:1px solid #BCE0DA;background:#EAF6F4;color:#0B5A50;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5}
+.err{display:none;margin-top:10px;border:1px solid #F0C6C1;background:#FBEFED;color:#8C2F26;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5}
+
+/* dashboard */
+.dash{display:flex;flex-direction:column;gap:18px;min-width:0}
+.empty{border:1.5px dashed #C9D3E0;border-radius:12px;padding:56px 30px;text-align:center;color:var(--muted)}
+.empty .big{font-family:var(--disp);font-size:19px;color:var(--navy);margin-bottom:8px}
+.hero{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center;padding:20px 24px}
+@media(max-width:640px){.hero{grid-template-columns:1fr;justify-items:center;text-align:center}}
+.gauge{position:relative;width:210px;height:126px}
+.gauge svg{display:block}
+.gauge .num{position:absolute;left:0;right:0;bottom:2px;text-align:center;font-family:var(--disp);font-weight:700;font-size:44px;letter-spacing:-.02em;color:var(--navy)}
+.gauge .lbl{position:absolute;left:0;right:0;bottom:-16px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.14em}
+.hero .meta h1{font-family:var(--disp);font-size:21px;font-weight:600;color:var(--navy)}
+.hero .meta .dt{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:2px 0 10px}
+.chip{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:12.5px;border-radius:99px;padding:5px 13px;border:1.5px solid}
+.chip .dot{width:8px;height:8px;border-radius:99px}
+.qline{margin-top:10px;font-size:12px;color:var(--muted)}
+.qline b{color:var(--ink)}
+
+.sect{padding:0}
+.sect .cap h2{font-size:12.5px}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:700px){.meters{grid-template-columns:1fr}}
+.meter{padding:14px 18px;border-bottom:1px solid var(--line)}
+.meter:nth-child(odd){border-right:1px solid var(--line)}
+@media(max-width:700px){.meter:nth-child(odd){border-right:0}}
+.meter .top{display:flex;align-items:baseline;gap:8px}
+.meter .nm{font-weight:600;font-size:13px;color:var(--navy)}
+.meter .wt{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.meter .sc{margin-left:auto;font-family:var(--disp);font-weight:700;font-size:19px}
+.meter .bar{position:relative;height:10px;background:#EDF1F6;border-radius:6px;margin-top:8px;overflow:visible}
+.meter .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;transition:width .5s ease}
+.meter .tick{position:absolute;top:-3px;bottom:-3px;width:1.5px;background:#C4CEDC}
+.meter .na{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:left;padding:9px 16px;border-bottom:1px solid var(--line);background:#FAFBFD}
+td{padding:8px 16px;border-bottom:1px solid #EEF1F6;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
+.scpill{display:inline-block;min-width:38px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:500;border-radius:6px;padding:2px 7px;color:#fff}
+.dimtag{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+.status .dot{width:8px;height:8px;border-radius:99px}
+.evi{font-family:var(--mono);font-size:10px;color:var(--teal-ink);background:#E3F3F0;border-radius:4px;padding:1px 6px;white-space:nowrap}
+.sharebar{display:flex;align-items:center;gap:10px}
+.sharebar .tr{flex:1;height:8px;background:#EDF1F6;border-radius:5px;overflow:hidden}
+.sharebar .fl{height:100%;background:var(--teal);border-radius:5px}
+.mixdots{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.twocol{grid-template-columns:1fr}}
+.list{list-style:none}
+.list li{padding:9px 16px;border-bottom:1px solid #EEF1F6;font-size:12.5px;display:flex;gap:10px;align-items:baseline}
+.list li:last-child{border-bottom:0}
+.list .ix{font-family:var(--mono);font-size:10px;color:var(--muted);min-width:18px}
+.flag{display:flex;gap:10px;align-items:baseline;padding:9px 16px;border-bottom:1px solid #EEF1F6;font-size:12.5px}
+.flag:last-child{border-bottom:0}
+.flag .sev{width:8px;height:8px;border-radius:99px;flex:none;position:relative;top:1px}
+.foot{padding:14px 18px;font-size:11.5px;color:var(--muted);line-height:1.6}
+.foot code{font-family:var(--mono);font-size:10.5px;background:#F0F3F8;border-radius:4px;padding:1px 5px;color:var(--navy)}
+.foot pre{font-family:var(--mono);font-size:10px;background:#0F1B2D;color:#C9D7EA;border-radius:8px;padding:12px;overflow:auto;margin-top:8px}
+.offline{margin-top:14px;padding-top:12px;border-top:1.5px dashed var(--line)}
+.offline .ofhd{font-family:var(--disp);font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--navy)}
+.offline .ofhd span{font-family:var(--body);font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:11px;margin-left:6px}
+.offline .ofsub{font-size:11px;color:var(--muted);margin:4px 0 8px;line-height:1.5}
+.ofbtns{display:flex;gap:8px;margin-top:8px}
+@media print{header,.intake,.runbar,.hint{display:none!important}.grid{display:block}.card{border-color:#bbb;break-inside:avoid;margin-bottom:14px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hd">
+    <div class="mark">MPEF <b>Analyzer</b></div>
+    <div class="sub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere · engine v1.3</div>
+    <div class="spacer"></div>
+    <div class="state" id="runState">offline-ready</div>
+  </div>
+</header>
+
+<div class="wrap grid">
+  <!-- ============ INTAKE ============ -->
+  <aside class="intake">
+    <div class="card">
+      <div class="cap"><h2>Meeting</h2><span class="tag">metadata</span></div>
+      <div class="bd">
+        <div class="frow">
+          <div><label for="mTitle">Title</label><input type="text" id="mTitle" placeholder="Weekly Product Review"></div>
+          <div><label for="mDate">Date</label><input type="date" id="mDate"></div>
+        </div>
+        <div class="frow">
+          <div><label for="mStart">Scheduled start (HH:MM)</label><input type="text" id="mStart" placeholder="10:00"></div>
+          <div><label for="mSched">Scheduled length (min)</label><input type="number" id="mSched" placeholder="60" min="1"></div>
+        </div>
+        <div class="frow">
+          <div><label for="mInv">Invitees (count)</label><input type="number" id="mInv" placeholder="10" min="1"></div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cap"><h2>Artifacts</h2><span class="tag">paste text</span></div>
+      <div class="bd" id="artBox">
+        <div class="art"><div class="lr"><label for="aAgenda">Agenda</label><span class="req">REQUIRED</span><span class="st" data-for="aAgenda">empty</span></div>
+          <textarea id="aAgenda" placeholder="1. KPI review — Sara — 10 min&#10;2. Roadmap update — Amir — 10 min&#10;…"></textarea></div>
+        <div class="art"><div class="lr"><label for="aTrans">Transcript</label><span class="req">REQUIRED</span><span class="st" data-for="aTrans">empty</span></div>
+          <textarea id="aTrans" style="min-height:150px" placeholder="[00:04] Sara: Let's get started…&#10;(timestamps + speaker labels give the best coverage)"></textarea></div>
+        <div class="art"><div class="lr"><label for="aMom">Minutes (MoM)</label><span class="opt">OPTIONAL</span><span class="st" data-for="aMom">empty</span></div>
+          <textarea id="aMom" placeholder="Decisions, action items as circulated…"></textarea></div>
+        <div class="art"><div class="lr"><label for="aChat">Chat log</label><span class="opt">OPTIONAL</span><span class="st" data-for="aChat">empty</span></div>
+          <textarea id="aChat" placeholder="10:12 Omar: what's the churn number?…"></textarea></div>
+        <div class="art"><div class="lr"><label for="aAtt">Attendance log</label><span class="opt">OPTIONAL</span><span class="st" data-for="aAtt">empty</span></div>
+          <textarea id="aAtt" placeholder="Sara joined 10:00, left 11:07…"></textarea></div>
+        <div class="runbar">
+          <button class="btn btn-run" id="localBtn">Extract &amp; score locally</button>
+          <button class="btn btn-ghost" id="demoBtn" title="Load a small sample meeting">Sample</button>
+        </div>
+        <div class="err" id="errBox"></div>
+        <div class="note" id="noteBox"></div>
+        <div class="offline">
+          <div class="ofhd">Any-AI route <span>for higher-quality extraction</span></div>
+          <div class="ofsub">Copy the extraction prompt, run it in any AI chat when convenient, paste the JSON it returns, and score locally. Local extraction also drops its JSON below so you can inspect, correct, and re-score.</div>
+          <div class="ofbtns"><button class="btn btn-ghost" id="copyPromptBtn" style="flex:1">1 · Copy extraction prompt</button><button class="btn btn-ghost" id="savePromptBtn" title="For very large transcripts — avoids clipboard limits">Save as .txt</button></div>
+          <label for="pasteJson" style="margin-top:10px">2 · Paste the JSON the AI returns</label>
+          <textarea id="pasteJson" style="min-height:72px" placeholder='{"meeting":{...},"agenda_items":[...],"participants":[...]}'></textarea>
+          <div class="ofbtns"><button class="btn btn-run" id="scoreJsonBtn" style="flex:1">3 · Score pasted JSON</button></div>
+        </div>
+        <div class="hint"><b>Extract &amp; score locally</b> runs the entire pipeline on this device — a deterministic rule engine reads the artifacts, then the same scoring code renders the dashboard. Nothing leaves this machine and no connection is ever used. Best with timestamped, speaker-labeled transcripts. For higher-quality extraction on messy input, use the <b>any-AI route</b> below in any chat tool you like, then paste its JSON back — scoring is identical. Missing evidence marks its dimensions <b>Not Assessable</b> — never estimated.</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ DASHBOARD ============ -->
+  <main class="dash" id="dash">
+    <div class="empty" id="emptyState">
+      <div class="big">Paste artifacts, then press Analyze</div>
+      Agenda + transcript are enough for a first score. Minutes, chat and attendance each unlock further metrics.<br>
+      The report renders here: MPI gauge, six dimension meters, agenda coverage, presenters, participation, outcomes and flags — every figure with its evidence.
+    </div>
+    <div id="report" style="display:none"></div>
+  </main>
+</div>
+<script>
+/* ================= CONFIG — identical defaults to the MPEF workbook ================= */
+const CONFIG = {
+  weights: { D1:20, D2:15, D3:20, D4:20, D5:10, D6:15 },
+  dims: { D1:"Agenda Discipline", D2:"Time Efficiency", D3:"Presenter Effectiveness",
+          D4:"Participation", D5:"Interaction Quality", D6:"Outcomes" },
+  bands: { offAgenda:[0.40,0.05], startDelay:[15,0], overrun:[0.50,0], dead:[0.30,0],
+           latency:[30,5], pace:[40,0], filler:[8,1], respLat:[60,5], monologue:[0.80,0.30],
+           density:[2,12], feedback:[0,8], chat:[0,1], interrupt:[6,0.5] },
+  mpiBands: [[85,"Highly Productive"],[70,"Productive"],[50,"Needs Improvement"],[0,"Ineffective"]]
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isNum = v => typeof v === "number" && isFinite(v);
+const clamp = v => Math.max(0, Math.min(100, v));
+const norm = (v,k) => { const [w,b]=CONFIG.bands[k]; return clamp(100*(v-w)/(b-w)); };
+const frac = v => clamp(v*100);
+const bandOf = s => CONFIG.mpiBands.find(b => s >= b[0])[1];
+const bandColor = s => s>=85 ? "var(--green)" : s>=70 ? "var(--amber)" : s>=50 ? "var(--coral)" : "var(--red)";
+const pct = v => isNum(v) ? (v*100).toFixed(1)+"%" : "—";
+const n1 = v => isNum(v) ? (Math.round(v*10)/10).toString() : "—";
+
+/* ================= intake wiring ================= */
+const ART = ["aAgenda","aTrans","aMom","aChat","aAtt"];
+ART.forEach(id => $(id).addEventListener("input", () => {
+  const st = document.querySelector(`.st[data-for="${id}"]`);
+  const len = $(id).value.trim().length;
+  st.textContent = len ? `${len.toLocaleString()} chars` : "empty";
+  st.classList.toggle("ok", len > 0);
+}));
+
+$("demoBtn").addEventListener("click", () => {
+  $("mTitle").value = "Weekly Product Review"; $("mDate").value = "2026-08-12";
+  $("mStart").value = "10:00"; $("mSched").value = 60; $("mInv").value = 10;
+  $("aAgenda").value = `1. KPI review — Sara — 10 min
+2. Roadmap update — Amir — 10 min
+3. Launch go/no-go — Lina — 10 min
+4. Budget check — Omar — 10 min
+5. Hiring update — Sara — 10 min
+6. AOB — Sara — 10 min`;
+  $("aTrans").value = `[10:04] Sara: Sorry for the late start — let's begin with KPIs. Activation is up 4% week over week, churn flat at 2.1%.
+[10:07] Omar: What is driving the activation lift?
+[10:08] Sara: The new onboarding checklist — cohort data shows it clearly.
+[10:16] Amir: Roadmap update. Q3 committed: mobile offline mode, SSO revamp, analytics v2. Offline mode enters beta next sprint.
+[10:24] Dana: Risk: the sync engine still fails on flaky networks in testing.
+[10:25] Amir: Agreed — we gate the beta on the failure rate dropping under 2%. I will own that gate.
+[10:29] Omar: Can analytics v2 ship without the export API?
+[10:30] Amir: Yes, export follows two weeks later.
+[10:31] Lina: Launch go/no-go for the pricing page. Legal signed off, experiments show +6% conversion, no churn signal.
+[10:38] Sara: Decision: we go live Monday. Lina owns the rollout checklist, due Friday.
+[10:40] Omar: Budget check — we are 8% under on infra, over by 3k on tooling; net positive. Proposal: reallocate the surplus to the data pipeline.
+[10:48] Sara: Agreed, reallocate. Omar to update the sheet by Wednesday.
+[10:52] Sara: Hiring — two platform offers out, one accepted. Backend loop still slipping; we keep losing candidates at reference stage. Parking the process fix for next week.
+[10:57] Karl: One question — does the pricing launch change the sales deck?
+[10:58] Sara: Good catch — taking that offline with marketing.
+[11:02] Sara: Out of time — skipping AOB. Thanks everyone.
+[11:07] (call ended)`;
+  $("aMom").value = `Decisions: pricing page goes live Monday; infra surplus reallocated to data pipeline.
+Actions: Lina — rollout checklist (Fri). Omar — budget sheet (Wed). Amir — offline-mode beta gate <2% failure.
+Open: backend hiring loop fix (next week). Sales-deck impact — offline with marketing.`;
+  $("aChat").value = `10:12 Dana: activation chart link please
+10:13 Sara: posted in #metrics
+10:33 Karl: +1 on Monday launch
+10:41 Mei: can we see tooling breakdown?
+10:49 Omar: sheet link incoming`;
+  $("aAtt").value = `Sara 10:00–11:07 · Amir 10:00–11:07 · Lina 10:00–11:07 · Omar 10:00–11:07 · Dana 10:00–11:07 · Karl 10:00–11:07 · Mei 10:12–11:07 · Tomás 10:27–11:07 (10 invited)`;
+  ART.forEach(id => $(id).dispatchEvent(new Event("input")));
+});
+
+/* ================= extraction (two parallel streams, truncation-safe) ================= */
+function artifactBlock() {
+  const art = (id, name) => { const v = $(id).value.trim(); return v ? `<${name}>\n${v}\n</${name}>` : `<${name}>NOT PROVIDED</${name}>`; };
+  return [art("aAgenda","agenda"), art("aTrans","transcript"), art("aMom","minutes"),
+          art("aChat","chat_log"), art("aAtt","attendance_log")].join("\n");
+}
+const COMMON_RULES = `STRICT RULES
+- Output ONE minified JSON object ONLY — no markdown, no backticks, no commentary, no trailing text.
+- Extract and count ONLY what the artifacts support. Use null for anything not derivable. NEVER invent or estimate beyond the text.
+- If timestamps exist, derive minutes from them (note the method in quality.notes if estimating). No timestamps: leave time fields null.
+- evidence strings: shortest reference possible, e.g. "t=10:31" or "L14" (max 10 chars).
+- Be extremely terse. Truncated output is a failure: stay well under your token limit.`;
+
+/* repair a truncated JSON response: close open strings/brackets, backtrack if needed */
+function closePartial(t) {
+  let inStr = false, escp = false; const st = [];
+  for (const ch of t) {
+    if (inStr) { if (escp) escp = false; else if (ch === "\\") escp = true; else if (ch === '"') inStr = false; }
+    else { if (ch === '"') inStr = true; else if (ch === "{" || ch === "[") st.push(ch);
+           else if (ch === "}" || ch === "]") st.pop(); }
+  }
+  let out = t;
+  if (inStr) out += '"';
+  out = out.replace(/[,:\s]+$/, "");
+  while (st.length) out += st.pop() === "{" ? "}" : "]";
+  return out;
+}
+function tolerantParse(text) {
+  const clean = String(text).replace(/```json|```/gi, "").trim();
+  const s = clean.indexOf("{");
+  if (s < 0) throw new Error("Extraction returned no JSON — press Analyze again.");
+  let t = clean.slice(s);
+  for (let i = 0; i < 80; i++) {
+    try { return JSON.parse(closePartial(t)); }
+    catch (e) {
+      const cut = Math.max(t.lastIndexOf(","), t.lastIndexOf("["), t.lastIndexOf("{"));
+      if (cut <= 0) break;
+      t = t.slice(0, cut);
+    }
+  }
+  throw new Error("The extraction reply couldn't be repaired — press Analyze again.");
+}
+
+/* ================= offline route ================= */
+function buildFullPrompt() {
+  const meta = { title: $("mTitle").value || null, date: $("mDate").value || null,
+    scheduled_start: $("mStart").value || null,
+    scheduled_minutes: +$("mSched").value || null, invitees: +$("mInv").value || null };
+  return `You are the extraction stage of the MPEF meeting-scoring pipeline. Analyze the meeting artifacts below and reply with ONLY one JSON object (no markdown, no commentary) exactly matching:
+
+{"meeting":{"title":str|null,"date":str|null,"scheduled_minutes":num|null,"actual_minutes":num|null,"start_delay_minutes":num|null,"dead_time_minutes":num|null,"off_agenda_minutes":num|null,"total_talk_minutes":num|null,"avg_decision_latency_minutes":num|null,"invitees":num|null},"agenda_items":[{"title":str,"planned_minutes":num|null,"planned_order":num,"actual_minutes":num|null,"actual_order":num|null,"substantive":bool,"decision_expected":bool,"decision_made":bool,"closed":bool}],"participants":[{"name":str,"present":bool,"minutes_present":num|null,"talk_minutes":num|null,"questions":num,"answers":num,"proposals":num,"risks":num,"info":num}],"presenters":[{"name":str,"planned_minutes":num|null,"actual_minutes":num|null,"words":num|null,"filler_words":num|null,"questions_received":num,"questions_answered":num,"median_response_latency_seconds":num|null,"longest_turn_minutes":num|null}],"interaction":{"questions_raised":num,"questions_answered":num,"questions_deferred":num,"feedback_instances":num,"chat_substantive_messages":num|null,"interruptions_per_10min":num|null,"turns_per_10min":num|null},"outcomes":{"actions_total":num,"actions_with_owner_and_due":num,"transcript_items":num,"mom_items":num|null,"matched_items":num|null,"decisions":[{"text":str,"evidence":str}],"actions":[{"text":str,"owner":str|null,"due":str|null,"evidence":str}]},"quality":{"has_timestamps":bool,"has_speaker_labels":bool,"notes":[str]}}
+
+${COMMON_RULES}
+- substantive = real discussion, not a passing mention. decision_expected = agenda wording implies a decision. closed = ended with a decision or an owned action.
+- transcript_items = decisions + actions found in the transcript; mom_items/matched_items only if minutes provided.
+- Caps: agenda_items <=12, participants <=12, presenters <=6, decisions <=6, actions <=8, notes <=4.
+- User-supplied metadata (trust over inference): ${JSON.stringify(meta)}
+
+${artifactBlock()}`;
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta); return ok;
+  } catch (e) { return false; }
+}
+$("copyPromptBtn").addEventListener("click", async () => {
+  const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
+  if (!$("aAgenda").value.trim() && !$("aTrans").value.trim()) {
+    err.textContent = "Paste the agenda and transcript above first — the copied prompt embeds them.";
+    err.style.display = "block"; return;
+  }
+  const ok = await copyText(buildFullPrompt());
+  const btn = $("copyPromptBtn");
+  if (ok) { btn.textContent = "Copied ✓ — paste into any AI chat"; }
+  else { err.textContent = "Clipboard blocked by this browser — long-press the button area and copy manually."; err.style.display = "block"; }
+  setTimeout(() => { btn.textContent = "1 · Copy extraction prompt"; }, 2600);
+});
+function downloadText(name, text){
+  const blob = new Blob([text], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 600);
+}
+$("savePromptBtn").addEventListener("click", () => {
+  const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
+  if (!$("aAgenda").value.trim() && !$("aTrans").value.trim()){
+    err.textContent = "Paste the agenda and transcript above first — the saved prompt embeds them.";
+    err.style.display = "block"; return;
+  }
+  downloadText("mpef-extraction-prompt.txt", buildFullPrompt());
+});
+$("scoreJsonBtn").addEventListener("click", () => {
+  const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
+  const raw = $("pasteJson").value.trim();
+  if (!raw) { err.textContent = "Paste the extraction JSON first (step 2)."; err.style.display = "block"; return; }
+  try {
+    const model = compute(tolerantParse(raw));
+    render(model);
+    $("runState").textContent = "done (offline) · " + (isNum(model.mpi) ? "MPI " + Math.round(model.mpi) : "not assessable");
+  } catch (e) {
+    err.textContent = e.message || String(e); err.style.display = "block";
+    $("runState").textContent = "error";
+  }
+});
+
+/* ================= built-in local extraction engine (deterministic, offline) ================= */
+const RX = {
+  decide: /\bdecision[:\s]|\bdecided\b|\bwe (?:go|will go|are going)\b|\bapproved?\b|\bagreed\b|\bgo(?:ing)? live\b|\bship it\b|\bgreen-?light/i,
+  decExp: /go\/?no-?go|decision|approve|approval|sign-?off|choose|select|vote|prioriti[sz]e/i,
+  action: /\b([A-ZÀ-Þ][\w'’-]+)\s+(?:to|will|owns?|takes?|is going to)\s+([^.;!?]{4,80})/g,
+  due: /\b(?:by|due|before|until)\s+((?:next\s+)?(?:mon|tues|wednes|thurs|fri|satur|sun)day|tomorrow|today|next week|end of (?:day|week|month)|eo[dwm]|\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?)/i,
+  defer: /\boffline\b|\bpark(?:ing|ed)?\b|\bdefer/i,
+  propose: /\bpropos|\bsuggest|\bwe should\b|\bhow about\b|\brecommend|\blet'?s\b/i,
+  risk: /\brisks?\b|\bconcern|\bworr(?:y|ied)|\bblocker|\bissue\b|\bfail(?:s|ing|ure)?\b|\bslip(?:ping|s)?\b/i,
+  feedback: /\bgreat\b|\bgood (?:point|catch|work|call)|\bnice\b|\bwell done\b|\bhelpful\b|\blove (?:it|this)\b|\+1\b|\bagree\b|\bmakes sense\b/i,
+  filler: /\b(?:um+|uh+|erm|like|you know|kind of|sort of|basically|actually|i mean|literally)\b/gi,
+};
+const NOTNAME = new Set(["decision","decisions","action","actions","note","notes","risk","risks","agenda","update","summary","question","questions","answer","answers","topic","item","reminder","warning","info","todo","fyi","minutes","chat","next","open","key"]);
+const isName = s => !NOTNAME.has(String(s).trim().split(/\s+/)[0].toLowerCase());
+const STOPW = new Set(["the","and","for","with","from","this","that","update","review","check","item","items","misc","other","about","into"]);
+const words = t => (t.trim().match(/\S+/g) || []).length;
+const median = a => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y); const m=Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+function parseClockMin(s){ const m = String(s||"").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(!m) return null;
+  return (+m[1])*60 + (+m[2]) + (m[3] ? (+m[3])/60 : 0); }
+
+/* normalize WebVTT / SRT / Teams-export transcripts into "[time] Name: text" lines */
+function normalizeTranscript(raw){
+  const NAME = "[A-Z\u00C0-\u00DE][\\w'\u2019\u00C0-\u00FF.-]*(?:\\s[A-Z\u00C0-\u00DE][\\w'\u2019\u00C0-\u00FF.-]*){0,2}";
+  const looksExport = /-->|<v\s|^WEBVTT/m.test(raw) ||
+    new RegExp("^\\s*" + NAME + "\\s+\\d{1,2}:\\d{2}(?::\\d{2})?\\s*$", "m").test(raw);
+  if (!looksExport) return { text: raw, fmt: null };
+  const TIMING = /^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[.,]\d{1,3})?\s*-->\s*/;
+  const VOICE = /^<v\s+([^>]+)>\s*([\s\S]*?)(?:<\/v>)?\s*$/;
+  const NAMETIME = new RegExp("^(" + NAME + ")\\s+(\\d{1,2}:\\d{2}(?::\\d{2})?)\\s*$");
+  const SPLINE = new RegExp("^" + NAME + "\\s*:\\s*\\S");
+  const out = []; let curT = null, curSp = null, fmt = "WebVTT/SRT";
+  for (const raw0 of raw.split(/\r?\n/)){
+    const line = raw0.trim();
+    if (!line || /^WEBVTT/.test(line) || /^NOTE\b/.test(line) || /^STYLE\b/.test(line) ||
+        /^\d+$/.test(line) || /^(Kind|Language):/i.test(line)) continue;
+    let m;
+    if ((m = line.match(TIMING))){ const h = m[1] ? +m[1] : 0;
+      curT = h + ":" + m[2].padStart(2, "0") + ":" + m[3]; continue; }
+    if ((m = line.match(VOICE))){ curSp = m[1].trim();
+      const tx = m[2].replace(/<[^>]+>/g, "").trim();
+      if (tx) out.push("[" + (curT || "0:00:00") + "] " + curSp + ": " + tx);
+      continue; }
+    if ((m = line.match(NAMETIME)) && isName(m[1])){ curSp = m[1].trim(); curT = m[2]; fmt = "Teams export"; continue; }
+    const clean = line.replace(/<[^>]+>/g, "").trim(); if (!clean) continue;
+    if (curT || curSp){
+      if (SPLINE.test(clean) && isName(clean.split(":")[0])) out.push("[" + (curT || "0:00:00") + "] " + clean);
+      else if (curSp) out.push("[" + (curT || "0:00:00") + "] " + curSp + ": " + clean);
+      else if (out.length) out[out.length - 1] += " " + clean;
+      else out.push("[" + (curT || "0:00:00") + "] " + clean);
+    } else out.push(line);
+  }
+  return { text: out.join("\n"), fmt };
+}
+function lxParseTranscript(text){
+  const uts = [];
+  const NAME = "[A-ZÀ-Þ][\\w'’À-ÿ.-]*(?:\\s[A-ZÀ-Þ][\\w'’À-ÿ.-]*){0,2}";
+  const reA = new RegExp("^[\\[\\(]?(\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]?\\s+(" + NAME + ")\\s*:\\s*(.+)$");
+  const reB = new RegExp("^(" + NAME + ")\\s*[\\[\\(](\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]\\s*:?\\s*(.+)$");
+  const reC = new RegExp("^(" + NAME + ")\\s*:\\s*(.+)$");
+  const reT = /^[\[\(]?(\d{1,2}:\d{2}(?::\d{2})?)[\]\)]?\s*(.*)$/;
+  text.split(/\r?\n/).forEach((raw, li) => {
+    const line = raw.trim(); if(!line) return;
+    let m;
+    if ((m = line.match(reA)) && isName(m[2])) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:m[2], tx:m[3], li}); return; }
+    if ((m = line.match(reB)) && isName(m[1])) { uts.push({t:parseClockMin(m[2]), ck:m[2], sp:m[1], tx:m[3], li}); return; }
+    if ((m = line.match(reC)) && !/^https?/i.test(m[1]) && isName(m[1])) { uts.push({t:null, ck:null, sp:m[1], tx:m[2], li}); return; }
+    if ((m = line.match(reT)) && parseClockMin(m[1]) !== null) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:null, tx:m[2]||"", li}); return; }
+    if (uts.length && uts[uts.length-1].tx.length < 8000) uts[uts.length-1].tx += " " + line;   // continuation (capped)
+  });
+  return uts;
+}
+function lxParseAgenda(text){
+  const items = []; let order = 1;
+  for (const raw of text.split(/\r?\n/)){
+    let line = raw.trim(); if(!line) continue;
+    line = line.replace(/^\d+[\.\)]\s*/,"").replace(/^[-*•·]\s*/,"");
+    const dur = (line.match(/(\d+)\s*(?:min|minutes?|m\b)/i) || [])[1];
+    const parts = line.split(/\s+[—–-]\s+/);
+    const title = parts[0].replace(/\(.*?\)/g,"").trim();
+    let owner = null;
+    for (const seg of parts.slice(1)){ const q = seg.trim();
+      if (q && !/\d/.test(q) && /^[A-ZÀ-Þ]/.test(q) && q.split(/\s+/).length <= 3){ owner = q; break; } }
+    if (title) items.push({ title, owner, planned_minutes: dur ? +dur : null, planned_order: order++ });
+  }
+  return items;
+}
+function lxKeywords(title){
+  const toks = title.toLowerCase().split(/[^a-zà-ÿ0-9\/-]+/).filter(w => w.length >= 3);
+  const kw = toks.filter(w => !STOPW.has(w));
+  return kw.length ? kw : toks;
+}
+
+function localExtract(){
+  const notes = ["local rule-based extraction — deterministic"];
+  const norm = normalizeTranscript($("aTrans").value);
+  if (norm.fmt) notes.push("transcript format normalized: " + norm.fmt);
+  let uts = lxParseTranscript(norm.text);
+  const FMT_ERR = "Couldn't parse any utterances. Supported: [10:04] Name: text · Name: text · WebVTT / SRT · Teams exports.";
+  if (!uts.length) throw new Error(FMT_ERR);
+  let spoken = uts.filter(u => u.sp);
+  let pseudo = false;
+  if (!spoken.length){
+    uts = uts.filter(u => u.tx && u.tx.trim()).map(u => ({ ...u, sp: "Speaker" }));
+    if (!uts.length) throw new Error(FMT_ERR);
+    spoken = uts; pseudo = true;
+    notes.push("no speaker labels — participation, presenter & Q&A metrics not assessable");
+  }
+  const speakers = [...new Set(spoken.map(u => u.sp))];
+  const times = uts.map(u => u.t).filter(isNum);
+  const hasTS = times.length >= uts.length * 0.5 && times.length >= 2;
+  const t0 = hasTS ? times.reduce((a,b) => Math.min(a,b), Infinity) : null;
+  const t1 = hasTS ? times.reduce((a,b) => Math.max(a,b), -Infinity) : null;
+  if (!hasTS) notes.push("no timestamps — durations estimated from word counts at 150 wpm");
+
+  /* per-utterance floor time */
+  notes.push("silence/dead-time detection needs audio — not assessable locally");
+  spoken.forEach(u => u.est = Math.max(words(u.tx)/150, 0.05));
+  for (let i = 0; i < uts.length; i++){
+    const u = uts[i]; if (!u.sp) continue;
+    let nxt = null; for (let j = i+1; j < uts.length; j++) if (isNum(uts[j].t)) { nxt = uts[j].t; break; }
+    if (hasTS && isNum(u.t) && isNum(nxt)){
+      u.dur = Math.min(Math.max(0, nxt - u.t), 6);   // floor-holding time, capped
+    } else u.dur = u.est;
+  }
+  const actual = hasTS ? (t1 - t0 + (uts[uts.length-1].sp ? uts[uts.length-1].est : 0))
+                       : spoken.reduce((a,u)=>a+u.dur,0);
+
+  /* how much of the floor time is actually transcribed? */
+  const totalWords = spoken.reduce((a,u) => a + words(u.tx), 0);
+  const floorTalk = spoken.reduce((a,u) => a + u.dur, 0);
+  const density = (hasTS && floorTalk > 0) ? (totalWords / 150) / floorTalk : 1;
+  const condensed = hasTS && density < 0.5;
+  const hasSec = uts.some(u => u.ck && /\d{1,2}:\d{2}:\d{2}/.test(u.ck));
+  if (condensed) notes.push("condensed transcript (~" + Math.max(1, Math.round(density * 100)) +
+    "% of floor time transcribed) — pace, filler, monologue & turn density not assessable");
+  if (hasTS && !hasSec) notes.push("minute-level timestamps — response latency not assessable");
+
+  /* classify utterances + Q&A pairing */
+  const qEvents = [];
+  spoken.forEach((u, i) => {
+    u.isQ = /\?/.test(u.tx);
+    if (u.isQ) qEvents.push({ u, idx: i });
+  });
+  let answered = 0, deferred = 0; const latencies = [];
+  qEvents.forEach(q => {
+    for (let j = q.idx + 1; j <= Math.min(q.idx + 3, spoken.length - 1); j++){
+      const r = spoken[j];
+      if (r.sp !== q.u.sp && words(r.tx) >= 3){
+        if (RX.defer.test(r.tx)) { deferred++; q.deferred = true; }
+        else { answered++; q.answered = true; q.responder = r.sp;
+          if (hasSec && isNum(q.u.t) && isNum(r.t)) { q.lat = Math.max(0,(r.t - q.u.t) * 60); latencies.push(q.lat); } }
+        break;
+      }
+    }
+  });
+
+  /* decisions & actions */
+  const clip = (s,n) => s.length > n ? s.slice(0, n-1) + "…" : s;
+  const evi = u => u.ck ? "t=" + u.ck : "L" + (u.li + 1);
+  const decisions = [], actions = [];
+  spoken.forEach((u, ui) => {
+    if (RX.decide.test(u.tx) && decisions.length < 6)
+      decisions.push({ text: clip(u.tx.replace(/^decision[:\s]*/i,"").trim(), 80), evidence: evi(u), _i: ui });
+    let m; RX.action.lastIndex = 0;
+    while ((m = RX.action.exec(u.tx)) && actions.length < 8){
+      const owner = speakers.find(s => s.toLowerCase().startsWith(m[1].toLowerCase())) || null;
+      const due = (u.tx.match(RX.due) || [])[1] || null;
+      if (owner || due) actions.push({ text: clip(m[2].trim(), 70), owner, due, evidence: evi(u), _i: ui });
+    }
+  });
+
+  /* agenda mapping → spans */
+  const items = lxParseAgenda($("aAgenda").value);
+  items.forEach(it => {
+    const kws = lxKeywords(it.title);
+    it._first = -1;
+    if (kws.length) for (let i = 0; i < spoken.length; i++)
+      if (kws.some(k => spoken[i].tx.toLowerCase().includes(k))) { it._first = i; break; }
+  });
+  const found = items.filter(i => i._first >= 0).sort((a,b) => a._first - b._first);
+  found.forEach((it, k) => {
+    it.actual_order = k + 1;
+    it._end = k + 1 < found.length ? found[k+1]._first : spoken.length;
+    const span = spoken.slice(it._first, it._end);
+    it._span = span;
+    it.actual_minutes = hasTS && isNum(span[0] && span[0].t)
+      ? Math.round(((k+1 < found.length && isNum(spoken[it._end] && spoken[it._end].t) ? spoken[it._end].t : t1) - span[0].t) * 10) / 10
+      : Math.round(span.reduce((a,u)=>a+u.dur,0) * 10) / 10;
+    it.substantive = span.length >= 2 && (it.actual_minutes === null || it.actual_minutes >= 1);
+    it._dec = decisions.find(d => d._i >= it._first && d._i < it._end);
+    it._act = actions.some(a => a._i >= it._first && a._i < it._end);
+    it.decision_made = !!it._dec;
+    it.closed = !!(it._dec || it._act);
+  });
+  items.forEach(it => {
+    it.decision_expected = RX.decExp.test(it.title);
+    if (it._first < 0){ it.actual_minutes = 0; it.actual_order = null; it.substantive = false;
+      it.decision_made = false; it.closed = false; }
+  });
+  const latPerItem = found.filter(i => i._dec && isNum(spoken[i._dec._i].t) && isNum(i._span[0].t))
+                          .map(i => spoken[i._dec._i].t - i._span[0].t);
+  if (items.length) notes.push("off-agenda mapping needs semantic analysis — not assessable locally (use the any-AI route)");
+
+  /* participants (transcript + attendance log) */
+  const perSp = {};
+  speakers.forEach(s => perSp[s] = { name:s, present:true, minutes_present:null, talk_minutes:0,
+    questions:0, answers:0, proposals:0, risks:0, info:0 });
+  spoken.forEach(u => {
+    const P = perSp[u.sp]; P.talk_minutes += u.dur;
+    if (u.isQ) P.questions += 1;
+    else if (RX.propose.test(u.tx)) P.proposals += 1;
+    else if (RX.risk.test(u.tx)) P.risks += 1;
+    else if (words(u.tx) >= 10) P.info += 1;
+  });
+  qEvents.forEach(q => { if (q.responder && perSp[q.responder]) perSp[q.responder].answers += 1; });
+  let invitees = +$("mInv").value || null;
+  const attTxt = $("aAtt").value;
+  if (attTxt.trim()){
+    const re = /([A-ZÀ-Þ][\w'’À-ÿ.-]*)\s+(\d{1,2}:\d{2})\s*[–—-]\s*(\d{1,2}:\d{2})/g; let m;
+    while ((m = re.exec(attTxt))){
+      const mins = Math.max(0, parseClockMin(m[3]) - parseClockMin(m[2]));
+      const key = Object.keys(perSp).find(k => k.toLowerCase().startsWith(m[1].toLowerCase()));
+      if (key) perSp[key].minutes_present = mins;
+      else perSp[m[1]] = { name:m[1], present:true, minutes_present:mins, talk_minutes:0,
+        questions:0, answers:0, proposals:0, risks:0, info:0 };
+    }
+    const inv = attTxt.match(/(\d+)\s+invit/i); if (inv) invitees = +inv[1];
+  } else notes.push("no attendance log — retention only for transcript speakers");
+  const participants = Object.values(perSp).filter(x => !(pseudo && x.name === "Speaker")).slice(0, 12)
+    .map(p => ({ ...p, talk_minutes: Math.round(p.talk_minutes * 10) / 10 }));
+
+  /* presenters from agenda owners who spoke */
+  const presenters = [];
+  const byOwner = {};
+  found.forEach(it => { if (it.owner){
+    const sp = speakers.find(s => s.toLowerCase().startsWith(it.owner.toLowerCase()));
+    if (sp){ (byOwner[sp] = byOwner[sp] || []).push(it); } } });
+  for (const [sp, its] of Object.entries(byOwner)){
+    let w = 0, fil = 0, qr = 0, qa = 0, act = 0; const lats = [];
+    let longest = 0, run = 0;
+    its.forEach(it => it._span.forEach(u => {
+      if (u.sp === sp){ w += words(u.tx); fil += (u.tx.match(RX.filler) || []).length; act += u.dur; }
+    }));
+    its.forEach(it => qEvents.forEach(q => {
+      const qi = q.idx;
+      if (qi >= it._first && qi < it._end && q.u.sp !== sp){
+        qr++; if (q.responder === sp){ qa++; if (isNum(q.lat)) lats.push(q.lat); } }
+    }));
+    spoken.forEach(u => { if (u.sp === sp){ run += u.dur; longest = Math.max(longest, run); } else run = 0; });
+    const measurable = hasTS && !condensed && w > 0;
+    presenters.push({ name: sp,
+      planned_minutes: its.reduce((a,i)=>a+(i.planned_minutes||0),0) || null,
+      actual_minutes: Math.round(act * 10) / 10 || null,
+      words: measurable ? w : null, filler_words: measurable ? fil : null,
+      questions_received: qr, questions_answered: qa,
+      median_response_latency_seconds: median(lats),
+      longest_turn_minutes: condensed ? null : (Math.round(longest * 10) / 10 || null) });
+  }
+  if (presenters.length < 2) notes.push("presenters inferred from agenda owners matched to speakers");
+
+  /* chat */
+  let chatMsgs = null;
+  if ($("aChat").value.trim()){
+    chatMsgs = $("aChat").value.split(/\r?\n/)
+      .filter(l => /\w+\s*:/.test(l) && (words(l.replace(/^[^:]*:/,"")) >= 3 || /\?/.test(l))).length;
+  }
+  /* MoM matching */
+  let momItems = null, matched = null;
+  const txItems = decisions.length + actions.length;
+  if ($("aMom").value.trim()){
+    const momLines = $("aMom").value.split(/[\n;]/).map(s => s.trim())
+      .filter(s => words(s) >= 3 && /decision|action|due|owns?|will|—|:|reallocat|live|gate/i.test(s));
+    momItems = momLines.length;
+    const sig = t => t.toLowerCase().split(/[^a-zà-ÿ0-9]+/).filter(w => w.length >= 5);
+    matched = [...decisions, ...actions].filter(it => {
+      const s = sig(it.text); return momLines.some(l => { const ls = l.toLowerCase();
+        return s.filter(w => ls.includes(w)).length >= Math.min(2, Math.max(1, s.length)); });
+    }).length;
+    matched = Math.min(matched, momItems, txItems);
+  }
+  notes.push("interruption detection needs audio — not assessable locally");
+
+  const schedStart = parseClockMin($("mStart").value);
+  const startDelay = (hasTS && isNum(schedStart) && isNum(t0)) ? Math.max(0, Math.round((t0 - schedStart) * 10) / 10) : null;
+  const totTalk = spoken.reduce((a,u)=>a+u.dur,0);
+
+  const ext = {
+    meeting: { title: $("mTitle").value || null, date: $("mDate").value || null,
+      scheduled_minutes: +$("mSched").value || null,
+      actual_minutes: isNum(actual) ? Math.round(actual * 10) / 10 : null,
+      start_delay_minutes: startDelay,
+      dead_time_minutes: null,
+      off_agenda_minutes: null,
+      total_talk_minutes: Math.round(totTalk * 10) / 10 || null,
+      avg_decision_latency_minutes: latPerItem.length ? Math.round(latPerItem.reduce((a,b)=>a+b,0)/latPerItem.length * 10) / 10 : null,
+      invitees },
+    agenda_items: items.slice(0, 12).map(i => ({ title: i.title, planned_minutes: i.planned_minutes,
+      planned_order: i.planned_order, actual_minutes: i.actual_minutes, actual_order: i.actual_order,
+      substantive: !!i.substantive, decision_expected: !!i.decision_expected,
+      decision_made: !!i.decision_made, closed: !!i.closed })),
+    participants,
+    presenters: presenters.slice(0, 6),
+    interaction: { questions_raised: qEvents.length,
+      questions_answered: pseudo ? null : answered,
+      questions_deferred: pseudo ? null : deferred,
+      feedback_instances: spoken.filter(u => RX.feedback.test(u.tx)).length,
+      chat_substantive_messages: chatMsgs,
+      interruptions_per_10min: null,
+      turns_per_10min: (!condensed && isNum(actual) && actual > 0) ? Math.round(spoken.length / actual * 100) / 10 : null },
+    outcomes: { actions_total: actions.length,
+      actions_with_owner_and_due: actions.filter(a => a.owner && a.due).length,
+      transcript_items: txItems, mom_items: momItems, matched_items: matched,
+      decisions: decisions.map(({_i, ...d}) => d), actions: actions.map(({_i, ...a}) => a) },
+    quality: { has_timestamps: hasTS, has_speaker_labels: speakers.length > 0 && !pseudo, notes: notes.slice(0, 6) }
+  };
+  return ext;
+}
+
+$("localBtn").addEventListener("click", () => {
+  const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
+  if (!$("aTrans").value.trim()){
+    err.textContent = "Local extraction needs at least the transcript (agenda strongly recommended for D1/D6).";
+    err.style.display = "block"; return;
+  }
+  try {
+    $("runState").textContent = "extracting locally";
+    const ext = localExtract();
+    $("pasteJson").value = JSON.stringify(ext, null, 1);
+    const model = compute(ext);
+    render(model);
+    $("runState").textContent = "done (local) · " + (isNum(model.mpi) ? "MPI " + Math.round(model.mpi) : "not assessable");
+  } catch (e) {
+    err.textContent = e.message || String(e);
+    err.style.display = "block"; $("runState").textContent = "error";
+  }
+});
+
+/* ================= deterministic scoring (mirrors the MPEF workbook) ================= */
+function compute(ext) {
+  const m = ext.meeting || {}, inter = ext.interaction || {}, out = ext.outcomes || {}, q = ext.quality || {};
+  const items = (ext.agenda_items || []).filter(i => i && i.title);
+  const people = (ext.participants || []).filter(p => p && p.name);
+  const pres = (ext.presenters || []).filter(p => p && p.name);
+  const sched = isNum(m.scheduled_minutes) ? m.scheduled_minutes : (+$("mSched").value || null);
+  const actual = isNum(m.actual_minutes) ? m.actual_minutes : null;
+  const invitees = isNum(m.invitees) ? m.invitees : (+$("mInv").value || null);
+
+  /* --- agenda --- */
+  const planned = items.length || null;
+  const subst = items.filter(i => i.substantive).length;
+  const coverage = planned ? subst / planned : null;
+  const adhVals = items.filter(i => isNum(i.planned_minutes) && i.planned_minutes > 0 && isNum(i.actual_minutes))
+                       .map(i => Math.max(0, 1 - Math.abs(i.actual_minutes - i.planned_minutes) / i.planned_minutes));
+  const timeAdh = adhVals.length ? adhVals.reduce((a,b)=>a+b,0)/adhVals.length : null;
+  const seqN = items.filter(i => isNum(i.actual_order) && i.actual_order === i.planned_order).length;
+  const seq = planned ? seqN / planned : null;
+  const decExp = items.filter(i => i.decision_expected).length;
+  const decMade = items.filter(i => i.decision_expected && i.decision_made).length;
+  const dyield = decExp > 0 ? decMade / decExp : null;
+  const unresolved = subst > 0 ? items.filter(i => i.substantive && !i.closed).length / subst : null;
+
+  /* --- meeting / D2 --- */
+  const startDelay = isNum(m.start_delay_minutes) ? m.start_delay_minutes : null;
+  const overrun = (isNum(actual) && isNum(sched) && sched > 0) ? Math.max(0, (actual - sched) / sched) : null;
+  const dead = (isNum(m.dead_time_minutes) && isNum(actual) && actual > 0) ? m.dead_time_minutes / actual : null;
+  const offAg = (isNum(m.off_agenda_minutes) && isNum(m.total_talk_minutes) && m.total_talk_minutes > 0)
+                ? m.off_agenda_minutes / m.total_talk_minutes : null;
+  const latency = isNum(m.avg_decision_latency_minutes) ? m.avg_decision_latency_minutes : null;
+
+  /* --- participants / D4 --- */
+  const att = people.filter(p => p.present);
+  const hasAttData = att.some(p => isNum(p.minutes_present)) || !!$("aAtt").value.trim();
+  const attendance = (hasAttData && att.length && isNum(invitees) && invitees > 0) ? att.length / invitees : null;
+  const retVals = att.filter(p => isNum(p.minutes_present)).map(p => p.minutes_present);
+  const retention = (retVals.length && isNum(actual) && actual > 0)
+      ? Math.min(1, (retVals.reduce((a,b)=>a+b,0)/retVals.length) / actual) : null;
+  const contrib = p => (p.questions||0)+(p.answers||0)+(p.proposals||0)+(p.risks||0)+(p.info||0);
+  const activeN = att.filter(p => contrib(p) > 0).length;
+  const active = (hasAttData && att.length) ? activeN / att.length : null;
+  const talks = att.filter(p => isNum(p.talk_minutes)).map(p => p.talk_minutes);
+  let balance = null, gini = null;
+  if (talks.length >= 2 && talks.reduce((a,b)=>a+b,0) > 0) {
+    const x = [...talks].sort((a,b)=>a-b), n = x.length, S = x.reduce((a,b)=>a+b,0);
+    gini = x.reduce((acc,v,i)=>acc + (2*(i+1) - n - 1) * v, 0) / (n * S);
+    balance = Math.max(0, Math.min(1, 1 - gini));
+  }
+  const density = isNum(inter.turns_per_10min) ? inter.turns_per_10min : null;
+
+  /* --- presenters / D3 --- */
+  const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+  const pr = pres.map(p => {
+    const alloc = (isNum(p.planned_minutes) && p.planned_minutes>0 && isNum(p.actual_minutes))
+        ? Math.max(0, 1 - Math.abs(p.actual_minutes - p.planned_minutes)/p.planned_minutes) : null;
+    const wpm = (isNum(p.words) && isNum(p.actual_minutes) && p.actual_minutes>0) ? p.words/p.actual_minutes : null;
+    return { name: p.name, planned: p.planned_minutes, actualMin: p.actual_minutes, alloc, wpm,
+      paceDev: isNum(wpm) ? Math.max(0, 130 - wpm, wpm - 170) : null,
+      filler: (isNum(p.filler_words) && isNum(p.words) && p.words>0) ? p.filler_words/p.words*100 : null,
+      qa: (isNum(p.questions_received) && p.questions_received>0) ? (p.questions_answered||0)/p.questions_received : null,
+      lat: isNum(p.median_response_latency_seconds) ? p.median_response_latency_seconds : null,
+      mono: (isNum(p.longest_turn_minutes) && isNum(p.actual_minutes) && p.actual_minutes>0)
+            ? Math.min(1, p.longest_turn_minutes/p.actual_minutes) : null };
+  });
+  const nn = k => pr.map(p=>p[k]).filter(isNum);
+  const aAlloc = avg(nn("alloc")), aPace = avg(nn("paceDev")), aFill = avg(nn("filler")),
+        aQa = avg(nn("qa")), aLat = avg(nn("lat")), aMono = avg(nn("mono"));
+
+  /* --- interaction / D5 --- */
+  const resol = (isNum(inter.questions_raised) && inter.questions_raised > 0 && isNum(inter.questions_answered))
+      ? inter.questions_answered/inter.questions_raised : null;
+  const feedback = isNum(inter.feedback_instances) ? inter.feedback_instances : null;
+  const chatPer = (isNum(inter.chat_substantive_messages) && att.length)
+      ? inter.chat_substantive_messages/att.length : null;
+  const interrupt = isNum(inter.interruptions_per_10min) ? inter.interruptions_per_10min : null;
+
+  /* --- outcomes / D6 --- */
+  const complete = (isNum(out.actions_total) && out.actions_total > 0)
+      ? (out.actions_with_owner_and_due||0)/out.actions_total : null;
+  const precision = (isNum(out.matched_items) && isNum(out.mom_items) && out.mom_items>0) ? out.matched_items/out.mom_items : null;
+  const recall = (isNum(out.matched_items) && isNum(out.transcript_items) && out.transcript_items>0) ? out.matched_items/out.transcript_items : null;
+  const fidelity = (isNum(precision) && isNum(recall)) ? (precision+recall)/2 : null;
+  const topicRes = isNum(unresolved) ? 1 - unresolved : null;
+
+  /* --- metric table --- */
+  const M = (dim,label,raw,disp,score) => ({dim,label,raw,disp,score: isNum(raw)? score : null});
+  const metrics = [
+    M("D1","Coverage rate",coverage,isNum(coverage)?pct(coverage)+" · "+subst+"/"+planned:"—",isNum(coverage)?frac(coverage):null),
+    M("D1","Avg time adherence",timeAdh,pct(timeAdh),isNum(timeAdh)?frac(timeAdh):null),
+    M("D1","Sequence adherence",seq,isNum(seq)?pct(seq)+" · "+seqN+"/"+planned:"—",isNum(seq)?frac(seq):null),
+    M("D1","Off-agenda ratio",offAg,pct(offAg),isNum(offAg)?norm(offAg,"offAgenda"):null),
+    M("D2","Start delay",startDelay,n1(startDelay)+" min",isNum(startDelay)?norm(startDelay,"startDelay"):null),
+    M("D2","Duration overrun",overrun,pct(overrun),isNum(overrun)?norm(overrun,"overrun"):null),
+    M("D2","Dead time ratio",dead,pct(dead),isNum(dead)?norm(dead,"dead"):null),
+    M("D2","Decision latency",latency,n1(latency)+" min",isNum(latency)?norm(latency,"latency"):null),
+    M("D3","Allocation adherence",aAlloc,pct(aAlloc),isNum(aAlloc)?frac(aAlloc):null),
+    M("D3","Pace deviation",aPace,n1(aPace)+" wpm",isNum(aPace)?norm(aPace,"pace"):null),
+    M("D3","Filler per 100 words",aFill,n1(aFill),isNum(aFill)?norm(aFill,"filler"):null),
+    M("D3","Q&A responsiveness",aQa,pct(aQa),isNum(aQa)?frac(aQa):null),
+    M("D3","Response latency",aLat,n1(aLat)+" s",isNum(aLat)?norm(aLat,"respLat"):null),
+    M("D3","Monologue ratio",aMono,pct(aMono),isNum(aMono)?norm(aMono,"monologue"):null),
+    M("D4","Attendance rate",attendance,isNum(attendance)?pct(attendance)+" · "+att.length+"/"+invitees:"—",isNum(attendance)?frac(attendance):null),
+    M("D4","Avg retention",retention,pct(retention),isNum(retention)?frac(retention):null),
+    M("D4","Active contributors",active,isNum(active)?pct(active)+" · "+activeN+"/"+att.length:"—",isNum(active)?frac(active):null),
+    M("D4","Speaking balance (1−Gini)",balance,pct(balance),isNum(balance)?frac(balance):null),
+    M("D4","Interaction density",density,n1(density)+" turns/10m",isNum(density)?norm(density,"density"):null),
+    M("D5","Question resolution",resol,isNum(resol)?pct(resol)+" · "+(inter.questions_answered||0)+"/"+inter.questions_raised:"—",isNum(resol)?frac(resol):null),
+    M("D5","Feedback instances",feedback,n1(feedback),isNum(feedback)?norm(feedback,"feedback"):null),
+    M("D5","Chat per attendee",chatPer,isNum(chatPer)?chatPer.toFixed(2):"—",isNum(chatPer)?norm(chatPer,"chat"):null),
+    M("D5","Interruptions per 10 min",interrupt,n1(interrupt),isNum(interrupt)?norm(interrupt,"interrupt"):null),
+    M("D6","Decision yield",dyield,isNum(dyield)?pct(dyield)+" · "+decMade+"/"+decExp:"—",isNum(dyield)?frac(dyield):null),
+    M("D6","Action completeness",complete,isNum(complete)?pct(complete)+" · "+(out.actions_with_owner_and_due||0)+"/"+out.actions_total:"—",isNum(complete)?frac(complete):null),
+    M("D6","Topic resolution (1−unresolved)",topicRes,pct(topicRes),isNum(topicRes)?frac(topicRes):null),
+    M("D6","MoM fidelity",fidelity,pct(fidelity),isNum(fidelity)?frac(fidelity):null),
+  ];
+
+  const dims = {};
+  for (const d of Object.keys(CONFIG.dims)) {
+    const sc = metrics.filter(x => x.dim === d && isNum(x.score)).map(x => x.score);
+    dims[d] = sc.length ? sc.reduce((a,b)=>a+b,0)/sc.length : null;
+  }
+  let wSum = 0, wTot = 0;
+  for (const d of Object.keys(dims)) if (isNum(dims[d])) { wSum += CONFIG.weights[d]*dims[d]; wTot += CONFIG.weights[d]; }
+  const mpi = wTot > 0 ? wSum/wTot : null;
+
+  /* --- flags (deterministic) --- */
+  const flags = [];
+  const F = (sev, text, evi) => flags.push({sev, text, evi});
+  const unans = Math.max(0, (inter.questions_raised||0) - (inter.questions_answered||0) - (inter.questions_deferred||0));
+  if (isNum(startDelay) && startDelay > 5) F("med", `Started ${n1(startDelay)} minutes late`);
+  if (isNum(overrun) && overrun > 0.10) F("med", `Ran ${(overrun*100).toFixed(0)}% over the scheduled length`);
+  if (unans > 0) F("high", `${unans} question${unans>1?"s":""} left unanswered`);
+  if ((inter.questions_deferred||0) > 0) F("info", `${inter.questions_deferred} question${inter.questions_deferred>1?"s":""} deferred ("take offline")`);
+  items.filter(i => i.substantive && !i.closed).forEach(i => F("high", `Unresolved: "${i.title}" — discussed but closed with no decision or action`));
+  const missOwn = Math.max(0,(out.actions_total||0) - (out.actions_with_owner_and_due||0));
+  if (missOwn > 0) F("med", `${missOwn} action item${missOwn>1?"s":""} missing an owner or a due date`);
+  if (isNum(fidelity) && fidelity < 0.8) F("med", `Minutes capture only ${pct(recall)} of transcript decisions/actions`);
+  if (isNum(dyield) && dyield < 1) F("high", `${decExp - decMade} expected decision${decExp-decMade>1?"s":""} not made`);
+  if (!$("aMom").value.trim()) F("info", "Minutes not provided — MoM fidelity not assessable");
+  if (!$("aChat").value.trim()) F("info", "Chat log not provided — chat engagement not assessable");
+  if (!$("aAtt").value.trim()) F("info", "Attendance log not provided — attendance, retention & active-contributor metrics not assessable (silent attendees are invisible in a transcript)");
+  (q.notes||[]).slice(0,6).forEach(t => F("info", t));
+
+  return { ext, sched, actual, invitees, items, people: att, pr, metrics, dims, mpi,
+           band: isNum(mpi) ? bandOf(mpi) : null, flags,
+           assessable: Object.values(dims).filter(isNum).length };
+}
+
+/* ================= rendering ================= */
+function gaugeSVG(mpi) {
+  const R = 90, C = Math.PI * R, val = isNum(mpi) ? mpi : 0;
+  const col = isNum(mpi) ? bandColor(mpi) : "#C4CEDC";
+  return `<div class="gauge">
+    <svg width="210" height="120" viewBox="0 0 210 120" role="img" aria-label="MPI gauge">
+      <path d="M 15 111 A ${R} ${R} 0 0 1 195 111" fill="none" stroke="#E7ECF3" stroke-width="15" stroke-linecap="round"/>
+      <path d="M 15 111 A ${R} ${R} 0 0 1 195 111" fill="none" stroke="${col}" stroke-width="15" stroke-linecap="round"
+        stroke-dasharray="${(val/100)*C} ${C}" style="transition:stroke-dasharray .6s ease"/>
+    </svg>
+    <div class="num">${isNum(mpi) ? Math.round(mpi) : "—"}</div>
+    <div class="lbl">MPI · 0–100</div>
+  </div>`;
+}
+function scorePill(s) {
+  return isNum(s) ? `<span class="scpill" style="background:${bandColor(s)}">${Math.round(s)}</span>`
+                  : `<span class="scpill" style="background:#C4CEDC">n/a</span>`;
+}
+function card(title, tag, inner) {
+  return `<div class="card sect"><div class="cap"><h2>${title}</h2>${tag?`<span class="tag">${tag}</span>`:""}</div>${inner}</div>`;
+}
+
+function render(r) {
+  const ttl = esc($("mTitle").value || r.ext.meeting?.title || "Untitled meeting");
+  const date = esc($("mDate").value || r.ext.meeting?.date || "");
+  const bandChip = r.band
+    ? `<span class="chip" style="color:${bandColor(r.mpi)};border-color:${bandColor(r.mpi)}"><span class="dot" style="background:${bandColor(r.mpi)}"></span>${r.band}</span>`
+    : `<span class="chip" style="color:var(--muted);border-color:var(--line)">Not assessable</span>`;
+  const durTxt = isNum(r.actual) && isNum(r.sched)
+    ? `${n1(r.actual)} min actual vs ${n1(r.sched)} scheduled` : (isNum(r.sched) ? `${n1(r.sched)} min scheduled` : "duration n/a");
+
+  const hero = `<div class="card hero">
+    ${gaugeSVG(r.mpi)}
+    <div class="meta">
+      <h1>${ttl}</h1>
+      <div class="dt">${date}${date?" · ":""}${durTxt} · ${r.people.length} attendee${r.people.length===1?"":"s"}${isNum(r.invitees)?` of ${r.invitees} invited`:""}</div>
+      ${bandChip}
+      <div class="qline"><b>${r.assessable} of 6</b> dimensions assessable · ${r.flags.filter(f=>f.sev!=="info").length} flags · extraction: ${r.ext.quality?.has_timestamps ? "timestamps ✓" : "no timestamps"}, ${r.ext.quality?.has_speaker_labels ? "speakers ✓" : "no speaker labels"}</div>
+    </div>
+  </div>`;
+
+  const meters = card("Dimension scores", "weighted → MPI", `<div class="meters">` +
+    Object.keys(CONFIG.dims).map(d => {
+      const s = r.dims[d];
+      const bar = isNum(s)
+        ? `<div class="bar"><div class="tick" style="left:50%"></div><div class="tick" style="left:70%"></div><div class="tick" style="left:85%"></div>
+             <div class="fill" style="width:${s}%;background:${bandColor(s)}"></div></div>`
+        : `<div class="na">Not assessable — missing artifacts</div>`;
+      return `<div class="meter"><div class="top"><span class="nm">${d} ${CONFIG.dims[d]}</span><span class="wt">w=${CONFIG.weights[d]}</span>
+        <span class="sc" style="color:${isNum(s)?bandColor(s):"var(--muted)"}">${isNum(s)?Math.round(s):"—"}</span></div>${bar}</div>`;
+    }).join("") + `</div>`);
+
+  const mtable = card("Metric detail", "raw value → normalized score", `<table><thead><tr>
+      <th style="width:44px">Dim</th><th>Metric</th><th class="num">Raw</th><th class="num" style="width:70px">Score</th></tr></thead><tbody>` +
+    r.metrics.map(m => `<tr><td class="dimtag">${m.dim}</td><td>${m.label}</td>
+      <td class="num">${m.disp}</td><td class="num">${scorePill(m.score)}</td></tr>`).join("") +
+    `</tbody></table><div class="foot" style="padding:9px 16px 12px">Counts are shown beside ratio metrics — tiny denominators (like 1/1) can legitimately score 0 or 100; judge them by the evidence size. \u201Cn/a\u201D means the supplied artifacts genuinely can\u2019t measure it.</div>`);
+
+  const agRows = r.items.map(i => {
+    const st = !i.substantive ? ["#98A2B3","skipped"] : (i.closed ? ["var(--green)","closed"] : ["var(--coral)","open"]);
+    return `<tr><td>${esc(i.title)}</td>
+      <td class="num">${n1(i.planned_minutes)} → ${n1(i.actual_minutes)}</td>
+      <td class="num">${i.planned_order??"—"} → ${i.actual_order??"—"}</td>
+      <td>${i.decision_expected ? (i.decision_made?"made":"expected, not made") : "—"}</td>
+      <td><span class="status"><span class="dot" style="background:${st[0]}"></span>${st[1]}</span></td></tr>`;
+  }).join("");
+  const agenda = card("Agenda coverage map", "planned vs actual", `<table><thead><tr>
+      <th>Item</th><th class="num">Min p→a</th><th class="num">Order p→a</th><th>Decision</th><th>Status</th></tr></thead>
+      <tbody>${agRows || `<tr><td colspan="5" style="color:var(--muted)">No agenda items extracted</td></tr>`}</tbody></table>`);
+
+  const prRows = r.pr.map(p => `<tr><td>${esc(p.name)}</td>
+      <td class="num">${n1(p.planned)} → ${n1(p.actualMin)}</td>
+      <td class="num">${n1(p.wpm)}</td><td class="num">${n1(p.filler)}</td>
+      <td class="num">${pct(p.qa)}</td><td class="num">${n1(p.lat)} s</td><td class="num">${pct(p.mono)}</td></tr>`).join("");
+  const presenters = card("Presenters", "feeds D3", `<table><thead><tr>
+      <th>Presenter</th><th class="num">Min p→a</th><th class="num">WPM</th><th class="num">Filler/100</th>
+      <th class="num">Q&amp;A</th><th class="num">Latency</th><th class="num">Monologue</th></tr></thead>
+      <tbody>${prRows || `<tr><td colspan="7" style="color:var(--muted)">No presenters extracted</td></tr>`}</tbody></table>`);
+
+  const totTalk = r.people.reduce((a,p)=>a+(isNum(p.talk_minutes)?p.talk_minutes:0),0);
+  const paRows = r.people.map(p => {
+    const share = totTalk>0 && isNum(p.talk_minutes) ? p.talk_minutes/totTalk : null;
+    return `<tr><td>${esc(p.name)}</td>
+      <td style="min-width:170px"><div class="sharebar"><div class="tr"><div class="fl" style="width:${isNum(share)?share*100:0}%"></div></div>
+        <span class="num" style="font-family:var(--mono);font-size:11px">${pct(share)}</span></div></td>
+      <td class="mixdots">Q${p.questions||0} · A${p.answers||0} · P${p.proposals||0} · R${p.risks||0} · I${p.info||0}</td></tr>`;
+  }).join("");
+  const parts = card("Participation", "talk share · contribution mix", `<table><thead><tr>
+      <th>Attendee</th><th>Talk share</th><th>Contributions</th></tr></thead>
+      <tbody>${paRows || `<tr><td colspan="3" style="color:var(--muted)">No participants extracted</td></tr>`}</tbody></table>`);
+
+  const dec = (r.ext.outcomes?.decisions||[]).map((d,i)=>`<li><span class="ix">${i+1}</span><span>${esc(d.text)}</span>${d.evidence?`<span class="evi">${esc(d.evidence)}</span>`:""}</li>`).join("");
+  const act = (r.ext.outcomes?.actions||[]).map((a,i)=>`<li><span class="ix">${i+1}</span><span>${esc(a.text)}${a.owner?` — <b>${esc(a.owner)}</b>`:""}${a.due?` · due ${esc(a.due)}`:""}</span>${a.evidence?`<span class="evi">${esc(a.evidence)}</span>`:""}</li>`).join("");
+  const outcomes = `<div class="twocol">
+    ${card("Decisions", null, `<ul class="list">${dec || `<li style="color:var(--muted)">None extracted</li>`}</ul>`)}
+    ${card("Action items", null, `<ul class="list">${act || `<li style="color:var(--muted)">None extracted</li>`}</ul>`)}
+  </div>`;
+
+  const sevCol = {high:"var(--red)", med:"var(--amber)", info:"#98A2B3"};
+  const flags = card("Flags", "deterministic checks", (r.flags.length
+      ? r.flags.map(f=>`<div class="flag"><span class="sev" style="background:${sevCol[f.sev]}"></span><span>${esc(f.text)}</span></div>`).join("")
+      : `<div class="flag"><span class="sev" style="background:var(--green)"></span><span>No flags raised.</span></div>`));
+
+  const method = card("Method & configuration", "printed for audit", `<div class="foot">
+      Engine v1.3 — extraction: built-in local rule engine (fully offline), or any AI via the copy-prompt route — all scores computed on-device by deterministic code ·
+      normalization <code>clamp(100·(v−worst)/(best−worst))</code> · MPI re-weighted over assessable dimensions ·
+      Gini computed exactly on sorted talk minutes · sentiment excluded · identical inputs + config ⇒ identical scores.
+      <pre>${esc(JSON.stringify({weights: CONFIG.weights, bands: CONFIG.bands, mpiBands: CONFIG.mpiBands}, null, 1))}</pre>
+      <div style="margin-top:8px"><button class="btn btn-ghost" onclick="window.print()">Print / save as PDF</button></div>
+    </div>`);
+
+  $("report").innerHTML = hero + meters + mtable + agenda + presenters + parts + outcomes + flags + method;
+  $("emptyState").style.display = "none";
+  $("report").style.display = "flex";
+  $("report").style.flexDirection = "column";
+  $("report").style.gap = "18px";
+}
+
+/* ================= run ================= */
+</script>
+</body>
+</html>
