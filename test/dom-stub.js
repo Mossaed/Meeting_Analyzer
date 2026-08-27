@@ -21,11 +21,13 @@ function mockEl(id) {
 }
 
 const KNOWN_IDS = [
-  "runState", "mTitle", "mDate", "mStart", "mSched", "mInv",
+  "runState", "mTitle", "mDate", "mStart", "mSched", "mInv", "anonToggle",
   "aAgenda", "aTrans", "aMom", "aChat", "aAtt",
   "localBtn", "demoBtn", "errBox", "noteBox",
   "copyPromptBtn", "savePromptBtn", "pasteJson", "scoreJsonBtn",
   "artBox", "dash", "emptyState", "report",
+  "fPriorDue", "fPriorClosed", "fPriorTopics", "fPriorRecur",
+  "fDead", "fOffAgenda", "fTotalTalk", "fInterrupt",
 ];
 
 // Extracts the <script>...</script> body from the app HTML file.

@@ -331,6 +331,73 @@ console.log("\n=== Honesty-note prioritization under the 6-note cap ===");
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== Advanced evidence: manual dead-time/off-agenda/interruption inputs ===");
+{
+  // Route A: these three are honesty-gated Not Assessable by default (no
+  // audio pipeline, no semantic mapping) -- confirm they stay n/a without
+  // manual input, then that filling the optional fields unlocks them and
+  // is disclosed as user-supplied, not extracted.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = "[10:00] Sara: We reviewed the whole budget in detail today.\n[10:08] Sara: Overall spend is tracking under plan for the quarter.";
+
+  const extBefore = sandbox.localExtract();
+  const modelBefore = sandbox.compute(extBefore);
+  check("dead time ratio is Not Assessable with no advanced evidence supplied", () =>
+    assertNull(modelBefore.metrics.find(m => m.label === "Dead time ratio").score));
+  check("off-agenda ratio is Not Assessable with no advanced evidence supplied", () =>
+    assertNull(modelBefore.metrics.find(m => m.label === "Off-agenda ratio").score));
+  check("interruptions metric is Not Assessable with no advanced evidence supplied", () =>
+    assertNull(modelBefore.metrics.find(m => m.label === "Interruptions per 10 min").score));
+
+  els.fDead.value = "3";
+  els.fOffAgenda.value = "2";
+  els.fInterrupt.value = "1.5";
+  const extAfter = sandbox.localExtract();
+  const modelAfter = sandbox.compute(extAfter);
+  check("dead time ratio scores once dead time is manually supplied", () =>
+    assertTrue(modelAfter.metrics.find(m => m.label === "Dead time ratio").score !== null));
+  check("off-agenda ratio scores once off-agenda minutes are manually supplied", () =>
+    assertTrue(modelAfter.metrics.find(m => m.label === "Off-agenda ratio").score !== null));
+  check("interruptions metric scores once manually supplied", () =>
+    assertTrue(modelAfter.metrics.find(m => m.label === "Interruptions per 10 min").score !== null));
+  check("manual dead-time entry is disclosed as user-supplied, not extracted", () =>
+    assertTrue(extAfter.quality.notes.some(n => /dead time manually supplied/.test(n)), JSON.stringify(extAfter.quality.notes)));
+
+  // Route B: same override must work when scoring pasted JSON that leaves
+  // these fields null -- same "user metadata overrides inference" pattern
+  // already used for scheduled minutes / invitees.
+  const pasted = {
+    meeting: { scheduled_minutes: 60, actual_minutes: 60, invitees: 5,
+      dead_time_minutes: null, off_agenda_minutes: null, total_talk_minutes: null },
+    agenda_items: [], participants: [], presenters: [],
+    interaction: { interruptions_per_10min: null }, outcomes: {}, quality: { notes: [] },
+  };
+  const { sandbox: sb2, els: els2 } = boot(APP_PATH);
+  const beforeB = sb2.compute(pasted);
+  check("Route B: dead time stays Not Assessable when JSON is null and no manual input given", () =>
+    assertNull(beforeB.metrics.find(m => m.label === "Dead time ratio").score));
+  els2.fDead.value = "5";
+  els2.fOffAgenda.value = "4";
+  els2.fTotalTalk.value = "40";
+  els2.fInterrupt.value = "2";
+  const afterB = sb2.compute(pasted);
+  check("Route B: dead time ratio scores once manually supplied, even though the pasted JSON left it null", () =>
+    assertTrue(afterB.metrics.find(m => m.label === "Dead time ratio").score !== null));
+  check("Route B: off-agenda ratio scores once manually supplied", () =>
+    assertTrue(afterB.metrics.find(m => m.label === "Off-agenda ratio").score !== null));
+
+  // A non-null JSON value must still win over a manual DOM entry (JSON is
+  // the more specific, per-meeting source once it actually has the field).
+  const pastedWithDead = { ...pasted, meeting: { ...pasted.meeting, dead_time_minutes: 9 } };
+  const { sandbox: sb3, els: els3 } = boot(APP_PATH);
+  els3.fDead.value = "1"; // should be ignored -- JSON already supplies dead_time_minutes
+  const modelC = sb3.compute(pastedWithDead);
+  check("Route B: a non-null JSON dead_time_minutes takes precedence over a stray manual entry", () =>
+    assertClose(modelC.metrics.find(m => m.label === "Dead time ratio").raw, 9 / 60, 1e-9, "dead ratio"));
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Anonymize toggle (agent spec sec1/sec5: 'Participation table — anonymizable') ===");
 {
   const { sandbox, els } = boot(APP_PATH);

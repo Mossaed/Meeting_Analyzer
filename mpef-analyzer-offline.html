@@ -205,6 +205,18 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
             <div><label for="fPriorRecur">…reappeared unresolved</label><input type="number" id="fPriorRecur" min="0"></div>
           </div>
         </details>
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--navy)">From your recording or diarization pipeline</summary>
+          <div class="hint" style="margin-top:8px">Dead time, off-agenda time and interruptions can never be read from text alone (honest-measurement rules §4) — if you have them from an audio pipeline, enter them here to unlock those metrics. Leave blank otherwise; nothing is estimated.</div>
+          <div class="frow" style="margin-top:10px">
+            <div><label for="fDead">Dead time / silence (min)</label><input type="number" id="fDead" min="0" step="0.1"></div>
+            <div><label for="fOffAgenda">Off-agenda talk time (min)</label><input type="number" id="fOffAgenda" min="0" step="0.1"></div>
+          </div>
+          <div class="frow">
+            <div><label for="fTotalTalk">Total talk time, all speakers (min)</label><input type="number" id="fTotalTalk" min="0" step="0.1"></div>
+            <div><label for="fInterrupt">Interruptions per 10 min (overlaps &gt;2s)</label><input type="number" id="fInterrupt" min="0" step="0.1"></div>
+          </div>
+        </details>
       </div>
     </div>
   </aside>
@@ -499,6 +511,15 @@ function localExtract(){
   const notes = [];
   const addNote = (text, pri) => notes.push({ text, pri: pri || 0 });
   addNote("local rule-based extraction — deterministic", 0);
+  /* dead time, off-agenda minutes and interruption rate are honesty-gated
+     (sec4 above): the local text-only route can never derive them, so they
+     only ever come from the optional "Advanced evidence" inputs -- filled
+     in by hand from a recording/diarization pipeline the user already has.
+     Read up front so the notes below can state which case applies. */
+  const manDead = +$("fDead").value || null;
+  const manOffAgenda = +$("fOffAgenda").value || null;
+  const manTotalTalk = +$("fTotalTalk").value || null;
+  const manInterrupt = +$("fInterrupt").value || null;
   const txNorm = normalizeTranscript($("aTrans").value);
   if (txNorm.fmt) addNote("transcript format normalized: " + txNorm.fmt, 1);
   let uts = lxParseTranscript(txNorm.text);
@@ -520,7 +541,8 @@ function localExtract(){
   if (!hasTS) addNote("no timestamps — durations estimated from word counts at 150 wpm", 2);
 
   /* per-utterance floor time */
-  addNote("silence/dead-time detection needs audio — not assessable locally", 1);
+  if (isNum(manDead)) addNote("dead time manually supplied (advanced evidence) — not derived from text", 1);
+  else addNote("silence/dead-time detection needs audio — not assessable locally", 1);
   spoken.forEach(u => u.est = Math.max(words(u.tx)/150, 0.05));
   for (let i = 0; i < uts.length; i++){
     const u = uts[i]; if (!u.sp) continue;
@@ -607,7 +629,8 @@ function localExtract(){
   });
   const latPerItem = found.filter(i => i._dec && isNum(spoken[i._dec._i].t) && isNum(i._span[0].t))
                           .map(i => spoken[i._dec._i].t - i._span[0].t);
-  if (items.length) addNote("off-agenda mapping needs semantic analysis — not assessable locally (use the any-AI route)", 1);
+  if (isNum(manOffAgenda)) addNote("off-agenda minutes manually supplied (advanced evidence) — not derived from text", 1);
+  else if (items.length) addNote("off-agenda mapping needs semantic analysis — not assessable locally (use the any-AI route)", 1);
 
   /* participants (transcript + attendance log) */
   const perSp = {};
@@ -686,7 +709,8 @@ function localExtract(){
     }).length;
     matched = Math.min(matched, momItems, txItems);
   }
-  addNote("interruption detection needs audio — not assessable locally", 1);
+  if (isNum(manInterrupt)) addNote("interruption rate manually supplied (advanced evidence) — not derived from text", 1);
+  else addNote("interruption detection needs audio — not assessable locally", 1);
 
   const schedStart = parseClockMin($("mStart").value);
   const startDelay = (hasTS && isNum(schedStart) && isNum(t0)) ? Math.max(0, Math.round((t0 - schedStart) * 10) / 10) : null;
@@ -697,9 +721,9 @@ function localExtract(){
       scheduled_minutes: +$("mSched").value || null,
       actual_minutes: isNum(actual) ? Math.round(actual * 10) / 10 : null,
       start_delay_minutes: startDelay,
-      dead_time_minutes: null,
-      off_agenda_minutes: null,
-      total_talk_minutes: Math.round(totTalk * 10) / 10 || null,
+      dead_time_minutes: manDead,
+      off_agenda_minutes: manOffAgenda,
+      total_talk_minutes: manTotalTalk || (Math.round(totTalk * 10) / 10 || null),
       avg_decision_latency_minutes: latPerItem.length ? Math.round(latPerItem.reduce((a,b)=>a+b,0)/latPerItem.length * 10) / 10 : null,
       invitees },
     agenda_items: items.slice(0, 12).map(i => ({ title: i.title, planned_minutes: i.planned_minutes,
@@ -713,7 +737,7 @@ function localExtract(){
       questions_deferred: pseudo ? null : deferred,
       feedback_instances: spoken.filter(u => RX.feedback.test(u.tx)).length,
       chat_substantive_messages: chatMsgs,
-      interruptions_per_10min: null,
+      interruptions_per_10min: manInterrupt,
       turns_per_10min: (!condensed && isNum(actual) && actual > 0) ? Math.round(spoken.length / actual * 100) / 10 : null },
     outcomes: { actions_total: actions.length,
       actions_with_owner_and_due: actions.filter(a => a.owner && a.due).length,
@@ -779,9 +803,18 @@ function compute(ext) {
   /* --- meeting / D2 --- */
   const startDelay = isNum(m.start_delay_minutes) ? m.start_delay_minutes : null;
   const overrun = (isNum(actual) && isNum(sched) && sched > 0) ? Math.max(0, (actual - sched) / sched) : null;
-  const dead = (isNum(m.dead_time_minutes) && isNum(actual) && actual > 0) ? m.dead_time_minutes / actual : null;
-  const offAg = (isNum(m.off_agenda_minutes) && isNum(m.total_talk_minutes) && m.total_talk_minutes > 0)
-                ? m.off_agenda_minutes / m.total_talk_minutes : null;
+  /* dead time, off-agenda minutes and interruption rate are honesty-gated
+     (agent spec sec1: audio-only signals, semantic off-agenda) -- the local
+     text-only route can never derive them, so they only ever come from the
+     extraction JSON or the optional "Advanced evidence" inputs the user
+     fills in by hand from their own recording/diarization pipeline. Same
+     override pattern as scheduled minutes / invitees (spec sec2: "user-
+     supplied metadata overrides inference"). */
+  const deadMin = isNum(m.dead_time_minutes) ? m.dead_time_minutes : (+$("fDead").value || null);
+  const offAgMin = isNum(m.off_agenda_minutes) ? m.off_agenda_minutes : (+$("fOffAgenda").value || null);
+  const totalTalkMin = isNum(m.total_talk_minutes) ? m.total_talk_minutes : (+$("fTotalTalk").value || null);
+  const dead = (isNum(deadMin) && isNum(actual) && actual > 0) ? deadMin / actual : null;
+  const offAg = (isNum(offAgMin) && isNum(totalTalkMin) && totalTalkMin > 0) ? offAgMin / totalTalkMin : null;
   const latency = isNum(m.avg_decision_latency_minutes) ? m.avg_decision_latency_minutes : null;
 
   /* --- participants / D4 --- */
@@ -827,7 +860,7 @@ function compute(ext) {
   const feedback = isNum(inter.feedback_instances) ? inter.feedback_instances : null;
   const chatPer = (isNum(inter.chat_substantive_messages) && att.length)
       ? inter.chat_substantive_messages/att.length : null;
-  const interrupt = isNum(inter.interruptions_per_10min) ? inter.interruptions_per_10min : null;
+  const interrupt = isNum(inter.interruptions_per_10min) ? inter.interruptions_per_10min : (+$("fInterrupt").value || null);
 
   /* --- outcomes / D6 --- */
   const complete = (isNum(out.actions_total) && out.actions_total > 0)
