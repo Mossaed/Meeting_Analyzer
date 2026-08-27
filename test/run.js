@@ -201,6 +201,96 @@ console.log("\n=== Tolerant JSON repair (Route B constrained-output resilience) 
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== Route B / JSON purity: compute() must not read stale DOM state ===");
+{
+  // Regression for a bug where compute() OR'd the attendance-textarea's raw
+  // text into hasAttData: pasting JSON with NO attendance evidence, while
+  // stale text sat in the (unrelated) attendance box, let attendance rate
+  // score off speaker-only data -- exactly what the honesty gate forbids.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAtt.value = "Sara 10:00-11:00"; // stale leftover text, irrelevant to the pasted JSON
+  els.mInv.value = "10";
+  const pasted = {
+    meeting: { scheduled_minutes: 60, actual_minutes: 60, invitees: 10 },
+    agenda_items: [],
+    participants: [
+      { name: "Sara", present: true, talk_minutes: 30, questions: 1, answers: 0, proposals: 0, risks: 0, info: 1 },
+      { name: "Omar", present: true, talk_minutes: 10, questions: 0, answers: 1, proposals: 0, risks: 0, info: 1 },
+    ],
+    presenters: [], interaction: { questions_raised: 1, questions_answered: 1 },
+    outcomes: { actions_total: 0 }, quality: { notes: [] },
+  };
+  const model = sandbox.compute(pasted);
+  check("attendance rate stays Not Assessable when the JSON carries no minutes_present, regardless of stale DOM text", () =>
+    assertNull(model.metrics.find(m => m.label === "Attendance rate").score));
+  check("active contributors stays Not Assessable under the same condition", () =>
+    assertNull(model.metrics.find(m => m.label === "Active contributors").score));
+
+  const modelWithData = sandbox.compute({
+    ...pasted,
+    participants: pasted.participants.map(p => ({ ...p, minutes_present: 60 })),
+  });
+  check("attendance rate DOES score once the JSON itself supplies minutes_present", () =>
+    assertTrue(modelWithData.metrics.find(m => m.label === "Attendance rate").score !== null));
+}
+{
+  // Regression: scoring a fresh tab's pasted JSON must not raise "not
+  // provided" flags for artifacts the JSON demonstrably includes.
+  const { sandbox } = boot(APP_PATH);
+  const pasted = {
+    meeting: { scheduled_minutes: 60, actual_minutes: 60, invitees: 5 },
+    agenda_items: [{ title: "Budget", planned_minutes: 10, planned_order: 1, actual_minutes: 11,
+      actual_order: 1, substantive: true, decision_expected: true, decision_made: true, closed: true }],
+    participants: [{ name: "Sara", present: true, minutes_present: 60, talk_minutes: 30,
+      questions: 1, answers: 1, proposals: 1, risks: 0, info: 2 }],
+    presenters: [],
+    interaction: { questions_raised: 2, questions_answered: 2, feedback_instances: 4, chat_substantive_messages: 12 },
+    outcomes: { actions_total: 2, actions_with_owner_and_due: 2, transcript_items: 4,
+      mom_items: 4, matched_items: 4 },
+    quality: { notes: [] },
+  };
+  const model = sandbox.compute(pasted);
+  const flagTexts = model.flags.map(f => f.text);
+  check("no 'Minutes not provided' flag when the JSON supplies mom_items", () =>
+    assertTrue(!flagTexts.some(t => /Minutes not provided/.test(t)), JSON.stringify(flagTexts)));
+  check("no 'Chat log not provided' flag when the JSON supplies chat_substantive_messages", () =>
+    assertTrue(!flagTexts.some(t => /Chat log not provided/.test(t)), JSON.stringify(flagTexts)));
+  check("no 'Attendance log not provided' flag when the JSON supplies minutes_present", () =>
+    assertTrue(!flagTexts.some(t => /Attendance log not provided/.test(t)), JSON.stringify(flagTexts)));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Honesty-note prioritization under the 6-note cap ===");
+{
+  // Regression: when more than 6 disclosures fire, the generic boilerplate
+  // note must be dropped before a meeting-specific honesty-gate finding --
+  // never the arbitrary "whatever was pushed first" order.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  // WebVTT input (triggers format-normalization note) with no speaker tags,
+  // minute-only timestamps too sparse to resolve seconds, and no attendance
+  // log -- stacks up: boilerplate, format, condensed/no-speaker, no-attendance,
+  // off-agenda, dead-time and interruption notes all in the same run.
+  els.aTrans.value = [
+    "WEBVTT", "",
+    "00:00:01.000 --> 00:00:04.000",
+    "<v Sara>Budget review, we are broadly fine on spend this quarter.",
+    "",
+    "00:10:00.000 --> 00:10:04.000",
+    "<v Omar>Any risk we should flag before we move on today?",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  assertTrue(ext.quality.notes.length <= 6, "notes exceed the 6-slot cap: " + ext.quality.notes.length);
+  check("boilerplate 'local rule-based extraction' note is dropped before meeting-specific gates when the budget is tight", () => {
+    const hasBoilerplate = ext.quality.notes.some(n => /local rule-based extraction/.test(n));
+    const hasCondensedOrGate = ext.quality.notes.some(n => /condensed transcript|minute-level timestamps|no attendance log/.test(n));
+    assertTrue(hasCondensedOrGate, "expected a meeting-specific gate note to survive: " + JSON.stringify(ext.quality.notes));
+    // Only assert displacement if the budget was actually oversubscribed enough to matter.
+    if (!hasBoilerplate) assertTrue(hasCondensedOrGate, "boilerplate correctly dropped in favor of gate notes");
+  });
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Zero-network guarantee (offline edition) ===");
 {
   const fs = require("fs");
