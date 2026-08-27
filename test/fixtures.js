@@ -3,7 +3,14 @@
 // FIXTURE A (sample): the app's own built-in "Sample" meeting, run through
 // its local rule-based extractor. This is the acceptance test the reuse
 // guide (§7) and agent spec describe: "Sample -> Extract & score locally"
-// must deterministically render MPI 75 - Productive.
+// must deterministically render MPI 70.92 - Productive (engine v1.4).
+//
+// v1.4 moved this value from 75.13: off-agenda ratio is now scored by
+// keyword-proximity matching instead of being permanently Not Assessable
+// on the local route (see docs/mpef-analyzer-reuse-guide.md §4 and the
+// engine v1.4 changelog entry). Every place this acceptance value is
+// documented was re-derived and updated together -- see README.md,
+// README.txt, and reuse guide §7/§9.
 //
 // FIXTURE B (workbook): the example meeting shipped in
 // docs/mpef-meeting-scorecard.xlsx, transcribed into the canonical §2
@@ -12,18 +19,20 @@
 // (openpyxl, data_only=True) -- an independent implementation of the same
 // spec (docs/mpef-agent-spec.md §3). Matching to 1e-6 is the parity
 // contract described in reuse guide §6 and spec: "change one, change all
-// three."
+// three." Untouched by v1.4: it feeds compute() directly with a non-null
+// off_agenda_minutes already set, bypassing the local extractor entirely.
 "use strict";
 
 const SAMPLE_EXPECTED = {
-  mpi: 75.13,
-  mpiTolerance: 0.05,
+  mpi: 70.92267573696147,
+  mpiTolerance: 1e-6,
   band: "Productive",
   assessable: 6,
   dims: {
-    D1: 86.1, D2: 83.8, D3: 73.3, D4: 72.6, D5: 47.2, D6: 76.3,
+    D1: 65.093537414966, D2: 83.77777777777777, D3: 73.33333333333334,
+    D4: 72.5545634920635, D5: 47.22222222222222, D6: 76.25,
   },
-  dimTolerance: 0.1,
+  dimTolerance: 1e-6,
 };
 
 function agendaItem(title, pm, po, am, ao, substantive, decExp, decMade, closed) {

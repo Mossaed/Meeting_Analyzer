@@ -105,7 +105,7 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 .dimtag{font-family:var(--mono);font-size:10px;color:var(--muted)}
 .status{display:inline-flex;align-items:center;gap:6px;font-size:12px}
 .status .dot{width:8px;height:8px;border-radius:99px}
-.evi{font-family:var(--mono);font-size:10px;color:var(--teal-ink);background:#E3F3F0;border-radius:4px;padding:1px 6px;white-space:nowrap}
+.evi{font-family:var(--mono);font-size:10px;color:var(--teal-ink);background:#E3F3F0;border-radius:4px;padding:1px 6px;white-space:nowrap;flex:none}
 .sharebar{display:flex;align-items:center;gap:10px}
 .sharebar .tr{flex:1;height:8px;background:#EDF1F6;border-radius:5px;overflow:hidden}
 .sharebar .fl{height:100%;background:var(--teal);border-radius:5px}
@@ -113,7 +113,7 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 .twocol{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media(max-width:900px){.twocol{grid-template-columns:1fr}}
 .list{list-style:none}
-.list li{padding:9px 16px;border-bottom:1px solid #EEF1F6;font-size:12.5px;display:flex;gap:10px;align-items:baseline}
+.list li{padding:9px 16px;border-bottom:1px solid #EEF1F6;font-size:12.5px;display:flex;gap:10px;align-items:baseline;overflow-wrap:anywhere}
 .list li:last-child{border-bottom:0}
 .list .ix{font-family:var(--mono);font-size:10px;color:var(--muted);min-width:18px}
 .flag{display:flex;gap:10px;align-items:baseline;padding:9px 16px;border-bottom:1px solid #EEF1F6;font-size:12.5px}
@@ -134,7 +134,7 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 <header>
   <div class="wrap hd">
     <div class="mark">MPEF <b>Analyzer</b></div>
-    <div class="sub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere · <span id="engineVerStamp">engine v1.3</span></div>
+    <div class="sub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere · <span id="engineVerStamp">engine v1.4</span></div>
     <div class="spacer"></div>
     <div class="state" id="runState" aria-live="polite">offline-ready</div>
   </div>
@@ -246,7 +246,7 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 /* Single source for the build stamp shown in the header and the method
    footer -- the filename never changes between versions (reuse guide sec7
    / sec8), so this constant is the only reliable place to bump it. */
-const ENGINE_VERSION = "1.3";
+const ENGINE_VERSION = "1.4";
 const engineVerEl = document.getElementById("engineVerStamp");
 if (engineVerEl) engineVerEl.textContent = "engine v" + ENGINE_VERSION;
 
@@ -368,12 +368,15 @@ function buildFullPrompt() {
     scheduled_minutes: +$("mSched").value || null, invitees: +$("mInv").value || null };
   return `You are the extraction stage of the MPEF meeting-scoring pipeline. Analyze the meeting artifacts below and reply with ONLY one JSON object (no markdown, no commentary) exactly matching:
 
-{"meeting":{"title":str|null,"date":str|null,"scheduled_minutes":num|null,"actual_minutes":num|null,"start_delay_minutes":num|null,"dead_time_minutes":num|null,"off_agenda_minutes":num|null,"total_talk_minutes":num|null,"avg_decision_latency_minutes":num|null,"invitees":num|null},"agenda_items":[{"title":str,"planned_minutes":num|null,"planned_order":num,"actual_minutes":num|null,"actual_order":num|null,"substantive":bool,"decision_expected":bool,"decision_made":bool,"closed":bool,"evidence":str|null}],"participants":[{"name":str,"present":bool,"minutes_present":num|null,"talk_minutes":num|null,"questions":num,"answers":num,"proposals":num,"risks":num,"info":num}],"presenters":[{"name":str,"planned_minutes":num|null,"actual_minutes":num|null,"words":num|null,"filler_words":num|null,"questions_received":num,"questions_answered":num,"median_response_latency_seconds":num|null,"longest_turn_minutes":num|null}],"interaction":{"questions_raised":num,"questions_answered":num,"questions_deferred":num,"feedback_instances":num,"chat_substantive_messages":num|null,"interruptions_per_10min":num|null,"turns_per_10min":num|null},"outcomes":{"actions_total":num,"actions_with_owner_and_due":num,"transcript_items":num,"mom_items":num|null,"matched_items":num|null,"decisions":[{"text":str,"evidence":str}],"actions":[{"text":str,"owner":str|null,"due":str|null,"evidence":str}]},"quality":{"has_timestamps":bool,"has_speaker_labels":bool,"notes":[str]}}
+{"meeting":{"title":str|null,"date":str|null,"scheduled_minutes":num|null,"actual_minutes":num|null,"start_delay_minutes":num|null,"dead_time_minutes":num|null,"off_agenda_minutes":num|null,"total_talk_minutes":num|null,"avg_decision_latency_minutes":num|null,"invitees":num|null},"agenda_items":[{"title":str,"planned_minutes":num|null,"planned_order":num,"actual_minutes":num|null,"actual_order":num|null,"substantive":bool,"decision_expected":bool,"decision_made":bool,"closed":bool,"evidence":str|null,"owners":[str]|null}],"participants":[{"name":str,"present":bool,"minutes_present":num|null,"talk_minutes":num|null,"questions":num,"answers":num,"proposals":num,"risks":num,"info":num}],"presenters":[{"name":str,"planned_minutes":num|null,"actual_minutes":num|null,"words":num|null,"filler_words":num|null,"questions_received":num,"questions_answered":num,"median_response_latency_seconds":num|null,"longest_turn_minutes":num|null}],"interaction":{"questions_raised":num,"questions_answered":num,"questions_deferred":num,"questions":[{"text":str,"asker":str|null,"status":"answered"|"deferred"|"unanswered","responder":str|null,"evidence":str}]|null,"feedback_instances":num|null,"chat_substantive_messages":num|null,"interruptions_per_10min":num|null,"turns_per_10min":num|null},"outcomes":{"actions_total":num,"actions_with_owner_and_due":num,"transcript_items":num,"mom_items":num|null,"matched_items":num|null,"decisions":[{"text":str,"speaker":str|null,"evidence":str}],"actions":[{"text":str,"owner":str|null,"due":str|null,"evidence":str}]},"quality":{"has_timestamps":bool,"has_speaker_labels":bool,"notes":[str]}}
 
 ${COMMON_RULES}
 - substantive = real discussion, not a passing mention. decision_expected = agenda wording implies a decision. closed = ended with a decision or an owned action.
+- owners = every presenter named for that agenda item (an item may list more than one), as they appear in the agenda text -- null if none named.
+- decisions[].text = the full decision statement verbatim, not a summary or a clipped fragment. decisions[].speaker = whoever stated it, null if unclear.
+- questions[] = every question raised, each with its resolution status; use null for the whole array only if speaker labels can't be resolved. feedback_instances = null (not 0) if you found no praise/agreement phrases at all -- 0 means you counted zero real instances among ones you could positively identify, which should be rare; when genuinely unsure, prefer null.
 - transcript_items = decisions + actions found in the transcript; mom_items/matched_items only if minutes provided.
-- Caps: agenda_items <=12, participants <=12, presenters <=6, decisions <=6, actions <=8, notes <=6.
+- Caps: agenda_items <=12, participants <=12, presenters <=6, decisions <=6, actions <=8, questions <=12, notes <=6.
 - User-supplied metadata (trust over inference): ${JSON.stringify(meta)}
 
 ${artifactBlock()}`;
@@ -554,10 +557,23 @@ function lxParseAgenda(text){
     const dur = (line.match(/(\d+)\s*(?:min|minutes?|m\b)/i) || [])[1];
     const parts = line.split(/\s+[—–-]\s+/);
     const title = parts[0].replace(/\(.*?\)/g,"").trim();
-    let owner = null;
-    for (const seg of parts.slice(1)){ const q = seg.trim();
-      if (q && !/\d/.test(q) && /^[A-ZÀ-Þ]/.test(q) && q.split(/\s+/).length <= 3){ owner = q; break; } }
-    if (title) items.push({ title, owner, planned_minutes: dur ? +dur : null, planned_order: order++ });
+    /* an owner segment may list more than one presenter, e.g. "Sara & Amir"
+       or "Sara, Amir and Lin" -- split into candidate names first, then
+       apply the name-shape heuristic to EACH name rather than the whole
+       segment (that per-segment token cap is what used to reject anything
+       past a single two-word name). Accept the segment only if every
+       split name is name-shaped, so "table topic, 10 min" style noise
+       still falls through to the next segment untouched. */
+    let owners = [];
+    for (const seg of parts.slice(1)){
+      const q = seg.trim();
+      if (!q || /\d/.test(q)) continue;
+      const names = q.split(/\s*(?:,|&|\+|\band\b)\s*/i).map(n => n.trim()).filter(Boolean);
+      const valid = names.filter(n => /^[A-ZÀ-Þ]/.test(n) && n.split(/\s+/).length <= 3);
+      if (valid.length && valid.length === names.length) { owners = valid; break; }
+    }
+    if (title) items.push({ title, owners, owner: owners[0] || null,
+      planned_minutes: dur ? +dur : null, planned_order: order++ });
   }
   return items;
 }
@@ -653,7 +669,7 @@ function localExtract(){
   const decisions = [], actions = [];
   spoken.forEach((u, ui) => {
     if (RX.decide.test(u.tx) && decisions.length < 6)
-      decisions.push({ text: clip(u.tx.replace(/^decision[:\s]*/i,"").trim(), 80), evidence: evi(u), _i: ui });
+      decisions.push({ text: u.tx.replace(/^decision[:\s]*/i,"").trim(), speaker: u.sp || null, evidence: evi(u), _i: ui });
     let m; RX.action.lastIndex = 0;
     while ((m = RX.action.exec(u.tx)) && actions.length < 8){
       const owner = speakers.find(s => s.toLowerCase().startsWith(m[1].toLowerCase())) || null;
@@ -664,11 +680,15 @@ function localExtract(){
 
   /* agenda mapping → spans */
   const items = lxParseAgenda($("aAgenda").value);
+  const claimedFirsts = new Set();   // one utterance can't anchor two items
   items.forEach(it => {
     const kws = lxKeywords(it.title);
+    it._kws = kws;
     it._first = -1;
     if (kws.length) for (let i = 0; i < spoken.length; i++)
-      if (kws.some(k => spoken[i].tx.toLowerCase().includes(k))) { it._first = i; break; }
+      if (!claimedFirsts.has(i) && kws.some(k => spoken[i].tx.toLowerCase().includes(k))) {
+        it._first = i; claimedFirsts.add(i); break;
+      }
   });
   const found = items.filter(i => i._first >= 0).sort((a,b) => a._first - b._first);
   found.forEach((it, k) => {
@@ -684,17 +704,33 @@ function localExtract(){
     it._act = actions.some(a => a._i >= it._first && a._i < it._end);
     it.decision_made = !!it._dec;
     it.closed = !!(it._dec || it._act);
-    it.evidence = evi(span[0]);
+    it.evidence = span.length ? evi(span[0]) : null;   // defensive: claimedFirsts (above) already guarantees span.length>0
   });
   items.forEach(it => {
     it.decision_expected = RX.decExp.test(it.title);
-    if (it._first < 0){ it.actual_minutes = 0; it.actual_order = null; it.substantive = false;
+    if (it._first < 0){ it.actual_minutes = null; it.actual_order = null; it.substantive = false;
       it.decision_made = false; it.closed = false; it.evidence = null; }
   });
   const latPerItem = found.filter(i => i._dec && isNum(spoken[i._dec._i].t) && isNum(i._span[0].t))
                           .map(i => spoken[i._dec._i].t - i._span[0].t);
+
+  /* off-agenda ratio: never derivable by span-gap arithmetic (spans abut, so
+     tangents inside a span are absorbed by whichever item anchored it) --
+     classify each substantive utterance directly instead. An utterance
+     counts off-agenda when it's long enough to be a real contribution
+     (>=8 words, so backchannel like "Agreed" is never judged) and matches
+     NONE of the agenda's keywords. This is keyword proximity, not semantic
+     understanding, so it's disclosed as an approximation, never silent. */
+  const allAgendaKw = [...new Set(items.flatMap(it => it._kws || []))];
+  let offAgendaMin = null;
+  if (items.length && allAgendaKw.length) {
+    offAgendaMin = Math.round(spoken
+      .filter(u => words(u.tx) >= 8 && !allAgendaKw.some(k => u.tx.toLowerCase().includes(k)))
+      .reduce((a,u) => a + u.dur, 0) * 10) / 10;
+  }
   if (isNum(manOffAgenda)) addNote("off-agenda minutes manually supplied (advanced evidence) — not derived from text", 1);
-  else if (items.length) addNote("off-agenda mapping needs semantic analysis — not assessable locally (use the any-AI route)", 1);
+  else if (isNum(offAgendaMin)) addNote("off-agenda ratio derived from keyword proximity to agenda topics — an approximation, not semantic analysis", 1);
+  else if (items.length) addNote("off-agenda mapping needs an agenda with matchable keywords — not assessable locally", 1);
 
   /* participants (transcript + attendance log) */
   const perSp = {};
@@ -724,12 +760,25 @@ function localExtract(){
   const participants = Object.values(perSp).filter(x => !(pseudo && x.name === "Speaker")).slice(0, 12)
     .map(p => ({ ...p, talk_minutes: Math.round(p.talk_minutes * 10) / 10 }));
 
-  /* presenters from agenda owners who spoke */
+  /* presenters from agenda owners who spoke -- an item can list more than
+     one presenter (it.owners), so every matched speaker gets credited with
+     the item, not just the first. Each co-presenter is scored against the
+     item's FULL planned minutes (actual_minutes below is already per-
+     speaker), which is disclosed via the note below rather than silently
+     understating everyone's allocation adherence. */
   const presenters = [];
   const byOwner = {};
-  found.forEach(it => { if (it.owner){
-    const sp = speakers.find(s => s.toLowerCase().startsWith(it.owner.toLowerCase()));
-    if (sp){ (byOwner[sp] = byOwner[sp] || []).push(it); } } });
+  let multiPresenterItems = 0;
+  found.forEach(it => {
+    const ownerNames = it.owners || [];
+    if (ownerNames.length > 1) multiPresenterItems++;
+    const matched = new Set();
+    ownerNames.forEach(name => {
+      const sp = speakers.find(s => s.toLowerCase().startsWith(name.toLowerCase()));
+      if (sp) matched.add(sp);
+    });
+    matched.forEach(sp => { (byOwner[sp] = byOwner[sp] || []).push(it); });
+  });
   for (const [sp, its] of Object.entries(byOwner)){
     let w = 0, fil = 0, qr = 0, qa = 0, act = 0; const lats = [];
     let longest = 0, run = 0;
@@ -752,6 +801,8 @@ function localExtract(){
       longest_turn_minutes: condensed ? null : (Math.round(longest * 10) / 10 || null) });
   }
   if (presenters.length < 2) addNote("presenters inferred from agenda owners matched to speakers", 1);
+  if (multiPresenterItems > 0) addNote(multiPresenterItems + " agenda item" + (multiPresenterItems > 1 ? "s" : "") +
+    " had multiple presenters — each is scored against the item's full planned minutes, not a split share", 2);
 
   /* chat */
   let chatMsgs = null;
@@ -780,26 +831,49 @@ function localExtract(){
   const startDelay = (hasTS && isNum(schedStart) && isNum(t0)) ? Math.max(0, Math.round((t0 - schedStart) * 10) / 10) : null;
   const totTalk = spoken.reduce((a,u)=>a+u.dur,0);
 
+  /* a zero count from a regex match is "we found no evidence of this",
+     not "we measured zero" -- scoring it as a real 0 would penalize every
+     meeting the detector simply didn't fire on. Null it out so the metric
+     drops from D5 instead, same honesty-gate pattern already used for
+     question resolution (only scored when questions_raised > 0). */
+  const feedbackCount = spoken.filter(u => RX.feedback.test(u.tx)).length;
+  const feedbackInstances = feedbackCount > 0 ? feedbackCount : null;
+  if (feedbackCount === 0) addNote("no feedback phrases detected — feedback instances not assessable (absence of evidence, not evidence of zero)", 2);
+
+  /* individual questions, so the flags panel can name which ones went
+     unanswered instead of just a count. Not assessable in pseudo mode
+     (no real speaker labels), same gate as questions_answered/deferred
+     below -- there's no reliable asker/responder without speakers. */
+  const questions = pseudo ? null : qEvents.slice(0, 12).map(q => ({
+    text: q.u.tx,
+    asker: q.u.sp || null,
+    status: q.deferred ? "deferred" : (q.answered ? "answered" : "unanswered"),
+    responder: q.responder || null,
+    evidence: evi(q.u),
+  }));
+
   const ext = {
     meeting: { title: $("mTitle").value || null, date: $("mDate").value || null,
       scheduled_minutes: +$("mSched").value || null,
       actual_minutes: isNum(actual) ? Math.round(actual * 10) / 10 : null,
       start_delay_minutes: startDelay,
       dead_time_minutes: manDead,
-      off_agenda_minutes: manOffAgenda,
+      off_agenda_minutes: isNum(manOffAgenda) ? manOffAgenda : offAgendaMin,
       total_talk_minutes: manTotalTalk || (Math.round(totTalk * 10) / 10 || null),
       avg_decision_latency_minutes: latPerItem.length ? Math.round(latPerItem.reduce((a,b)=>a+b,0)/latPerItem.length * 10) / 10 : null,
       invitees },
     agenda_items: items.slice(0, 12).map(i => ({ title: i.title, planned_minutes: i.planned_minutes,
       planned_order: i.planned_order, actual_minutes: i.actual_minutes, actual_order: i.actual_order,
       substantive: !!i.substantive, decision_expected: !!i.decision_expected,
-      decision_made: !!i.decision_made, closed: !!i.closed, evidence: i.evidence || null })),
+      decision_made: !!i.decision_made, closed: !!i.closed, evidence: i.evidence || null,
+      owners: (i.owners && i.owners.length) ? i.owners : null })),
     participants,
     presenters: presenters.slice(0, 6),
     interaction: { questions_raised: qEvents.length,
       questions_answered: pseudo ? null : answered,
       questions_deferred: pseudo ? null : deferred,
-      feedback_instances: spoken.filter(u => RX.feedback.test(u.tx)).length,
+      questions,
+      feedback_instances: feedbackInstances,
       chat_substantive_messages: chatMsgs,
       interruptions_per_10min: manInterrupt,
       turns_per_10min: (!condensed && isNum(actual) && actual > 0) ? Math.round(spoken.length / actual * 100) / 10 : null },
@@ -994,11 +1068,27 @@ function compute(ext) {
   /* --- flags (deterministic) --- */
   const flags = [];
   const F = (sev, text, evi) => flags.push({sev, text, evi});
-  const unans = Math.max(0, (inter.questions_raised||0) - (inter.questions_answered||0) - (inter.questions_deferred||0));
+  /* only compute an unanswered count when answered/deferred are both real
+     numbers -- coercing a null (e.g. no-speaker-labels transcripts, where
+     Q&A pairing genuinely can't be assessed) to 0 with ||0 used to inflate
+     "unanswered" to the FULL raised count and flag every question, directly
+     contradicting the "not assessable" honesty note fired for the same run. */
+  const qaAssessable = isNum(inter.questions_answered) && isNum(inter.questions_deferred);
+  const unans = qaAssessable ? Math.max(0, (inter.questions_raised||0) - inter.questions_answered - inter.questions_deferred) : null;
   if (isNum(startDelay) && startDelay > 5) F("med", `Started ${n1(startDelay)} minutes late`);
   if (isNum(overrun) && overrun > 0.10) F("med", `Ran ${(overrun*100).toFixed(0)}% over the scheduled length`);
-  if (unans > 0) F("high", `${unans} question${unans>1?"s":""} left unanswered`);
-  if ((inter.questions_deferred||0) > 0) F("info", `${inter.questions_deferred} question${inter.questions_deferred>1?"s":""} deferred ("take offline")`);
+  if (Array.isArray(inter.questions)) {
+    /* name the actual questions instead of just a count, so there's
+       something to act on rather than a bare "3 questions left unanswered" */
+    inter.questions.filter(q => q.status === "unanswered").forEach(q =>
+      F("high", `Unanswered question${q.asker ? ` (${q.asker})` : ""}: "${q.text}"`, q.evidence));
+    inter.questions.filter(q => q.status === "deferred").forEach(q =>
+      F("info", `Deferred question${q.asker ? ` (${q.asker})` : ""} ("take offline"): "${q.text}"`, q.evidence));
+  } else {
+    if (isNum(unans) && unans > 0) F("high", `${unans} question${unans>1?"s":""} left unanswered`);
+    if (isNum(inter.questions_deferred) && inter.questions_deferred > 0)
+      F("info", `${inter.questions_deferred} question${inter.questions_deferred>1?"s":""} deferred ("take offline")`);
+  }
   items.filter(i => i.substantive && !i.closed).forEach(i => F("high", `Unresolved: "${i.title}" — discussed but closed with no decision or action`, i.evidence));
   const missOwn = Math.max(0,(out.actions_total||0) - (out.actions_with_owner_and_due||0));
   if (missOwn > 0) {
@@ -1093,14 +1183,15 @@ function render(r) {
   const agRows = r.items.map(i => {
     const st = !i.substantive ? ["#98A2B3","skipped"] : (i.closed ? ["var(--green)","closed"] : ["var(--coral)","open"]);
     return `<tr><td>${esc(i.title)}</td>
+      <td>${i.owners && i.owners.length ? esc(i.owners.join(", ")) : "—"}</td>
       <td class="num">${n1(i.planned_minutes)} → ${n1(i.actual_minutes)}</td>
       <td class="num">${i.planned_order??"—"} → ${i.actual_order??"—"}</td>
       <td>${i.decision_expected ? (i.decision_made?"made":"expected, not made") : "—"}</td>
       <td><span class="status"><span class="dot" style="background:${st[0]}"></span>${st[1]}</span></td></tr>`;
   }).join("");
   const agenda = card("Agenda coverage map", "planned vs actual", `<table><thead><tr>
-      <th>Item</th><th class="num">Min p→a</th><th class="num">Order p→a</th><th>Decision</th><th>Status</th></tr></thead>
-      <tbody>${agRows || `<tr><td colspan="5" style="color:var(--muted)">No agenda items extracted</td></tr>`}</tbody></table>`);
+      <th>Item</th><th>Presenter</th><th class="num">Min p→a</th><th class="num">Order p→a</th><th>Decision</th><th>Status</th></tr></thead>
+      <tbody>${agRows || `<tr><td colspan="6" style="color:var(--muted)">No agenda items extracted</td></tr>`}</tbody></table>`);
 
   const prRows = r.pr.map(p => `<tr><td>${esc(p.name)}</td>
       <td class="num">${n1(p.planned)} → ${n1(p.actualMin)}</td>
@@ -1123,7 +1214,7 @@ function render(r) {
       <th>Attendee</th><th>Talk share</th><th>Contributions</th></tr></thead>
       <tbody>${paRows || `<tr><td colspan="3" style="color:var(--muted)">No participants extracted</td></tr>`}</tbody></table>`);
 
-  const dec = (r.ext.outcomes?.decisions||[]).map((d,i)=>`<li><span class="ix">${i+1}</span><span>${esc(d.text)}</span>${d.evidence?`<span class="evi">${esc(d.evidence)}</span>`:""}</li>`).join("");
+  const dec = (r.ext.outcomes?.decisions||[]).map((d,i)=>`<li><span class="ix">${i+1}</span><span>${d.speaker?`<b>${esc(d.speaker)}:</b> `:""}${esc(d.text)}</span>${d.evidence?`<span class="evi">${esc(d.evidence)}</span>`:""}</li>`).join("");
   const act = (r.ext.outcomes?.actions||[]).map((a,i)=>`<li><span class="ix">${i+1}</span><span>${esc(a.text)}${a.owner?` — <b>${esc(a.owner)}</b>`:""}${a.due?` · due ${esc(a.due)}`:""}</span>${a.evidence?`<span class="evi">${esc(a.evidence)}</span>`:""}</li>`).join("");
   const outcomes = `<div class="twocol">
     ${card("Decisions", null, `<ul class="list">${dec || `<li style="color:var(--muted)">None extracted</li>`}</ul>`)}

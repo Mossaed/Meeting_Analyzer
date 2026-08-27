@@ -43,7 +43,7 @@ console.log("=== Fixture A: built-in Sample meeting (local rule engine) ===");
   const ext = sandbox.localExtract();
   const model = sandbox.compute(ext);
 
-  check("MPI ~= 75.13 (reuse guide sec7 / README acceptance test: 'MPI 75 . Productive')", () =>
+  check("MPI ~= 70.92 (reuse guide sec7 / README acceptance test, engine v1.4: 'MPI 70.92 . Productive')", () =>
     assertClose(model.mpi, SAMPLE_EXPECTED.mpi, SAMPLE_EXPECTED.mpiTolerance, "mpi"));
   check("band == Productive", () => assertEqual(model.band, SAMPLE_EXPECTED.band, "band"));
   check("6 of 6 dimensions assessable", () => assertEqual(model.assessable, SAMPLE_EXPECTED.assessable, "assessable"));
@@ -117,17 +117,19 @@ console.log("\n=== Evidence-honesty gates (agent spec sec1 EVIDENCE-HONESTY GATE
     assertTrue(ext.quality.notes.some(n => /minute-level timestamps/.test(n)), JSON.stringify(ext.quality.notes)));
 }
 {
-  // Gate: off-agenda ratio and dead time are never scored by the local
-  // (Mode 3 / text-only) route -- they require semantic mapping / audio.
+  // Gate: dead time is never scored by the local (Mode 3 / text-only)
+  // route -- it requires an audio pipeline, never derivable from text.
   const { sandbox, els } = boot(APP_PATH);
   els.aAgenda.value = "1. Budget review — Sara — 10 min";
   els.aTrans.value = "[10:00] Sara: Let's review the budget numbers for this quarter in detail.\n[10:05] Sara: Overall spend is tracking under plan by a healthy margin.";
   const ext = sandbox.localExtract();
   const model = sandbox.compute(ext);
-  check("off-agenda ratio Not Assessable from local/text-only extraction", () =>
-    assertNull(model.metrics.find(m => m.label === "Off-agenda ratio").score));
   check("dead time ratio Not Assessable from local/text-only extraction", () =>
     assertNull(model.metrics.find(m => m.label === "Dead time ratio").score));
+  check("off-agenda ratio DOES score locally via keyword matching (engine v1.4)", () =>
+    assertTrue(model.metrics.find(m => m.label === "Off-agenda ratio").score !== null));
+  check("off-agenda keyword-matching disclosed as an approximation, not semantic analysis", () =>
+    assertTrue(ext.quality.notes.some(n => /off-agenda ratio derived from keyword proximity/.test(n)), JSON.stringify(ext.quality.notes)));
 }
 {
   // Gate: not-a-name guard -- label prefixes are never mistaken for speakers.
@@ -333,10 +335,12 @@ console.log("\n=== Honesty-note prioritization under the 6-note cap ===");
 // ---------------------------------------------------------------------
 console.log("\n=== Advanced evidence: manual dead-time/off-agenda/interruption inputs ===");
 {
-  // Route A: these three are honesty-gated Not Assessable by default (no
-  // audio pipeline, no semantic mapping) -- confirm they stay n/a without
-  // manual input, then that filling the optional fields unlocks them and
-  // is disclosed as user-supplied, not extracted.
+  // Route A: dead time and interruptions are honesty-gated Not Assessable
+  // by default (no audio pipeline) -- confirm they stay n/a without manual
+  // input, then that filling the optional fields unlocks them and is
+  // disclosed as user-supplied, not extracted. Off-agenda ratio is scored
+  // by keyword matching by default since engine v1.4 (see the dedicated
+  // off-agenda test above); a manual entry here must still override it.
   const { sandbox, els } = boot(APP_PATH);
   els.aAgenda.value = "1. Budget review — Sara — 10 min";
   els.aTrans.value = "[10:00] Sara: We reviewed the whole budget in detail today.\n[10:08] Sara: Overall spend is tracking under plan for the quarter.";
@@ -345,8 +349,8 @@ console.log("\n=== Advanced evidence: manual dead-time/off-agenda/interruption i
   const modelBefore = sandbox.compute(extBefore);
   check("dead time ratio is Not Assessable with no advanced evidence supplied", () =>
     assertNull(modelBefore.metrics.find(m => m.label === "Dead time ratio").score));
-  check("off-agenda ratio is Not Assessable with no advanced evidence supplied", () =>
-    assertNull(modelBefore.metrics.find(m => m.label === "Off-agenda ratio").score));
+  check("off-agenda ratio already scores via keyword matching before any manual entry", () =>
+    assertTrue(modelBefore.metrics.find(m => m.label === "Off-agenda ratio").score !== null));
   check("interruptions metric is Not Assessable with no advanced evidence supplied", () =>
     assertNull(modelBefore.metrics.find(m => m.label === "Interruptions per 10 min").score));
 
@@ -357,8 +361,10 @@ console.log("\n=== Advanced evidence: manual dead-time/off-agenda/interruption i
   const modelAfter = sandbox.compute(extAfter);
   check("dead time ratio scores once dead time is manually supplied", () =>
     assertTrue(modelAfter.metrics.find(m => m.label === "Dead time ratio").score !== null));
-  check("off-agenda ratio scores once off-agenda minutes are manually supplied", () =>
-    assertTrue(modelAfter.metrics.find(m => m.label === "Off-agenda ratio").score !== null));
+  check("a manually-supplied off-agenda value overrides the keyword-derived one", () => {
+    const m = modelAfter.metrics.find(x => x.label === "Off-agenda ratio");
+    assertClose(m.raw, 2 / extAfter.meeting.total_talk_minutes, 1e-9, "off-agenda raw ratio should reflect the manual 2-minute entry");
+  });
   check("interruptions metric scores once manually supplied", () =>
     assertTrue(modelAfter.metrics.find(m => m.label === "Interruptions per 10 min").score !== null));
   check("manual dead-time entry is disclosed as user-supplied, not extracted", () =>
@@ -398,6 +404,182 @@ console.log("\n=== Advanced evidence: manual dead-time/off-agenda/interruption i
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== Multi-presenter agenda items (engine v1.4) ===");
+{
+  const { sandbox } = boot(APP_PATH);
+  const variants = {
+    "Sara & Amir": ["Sara", "Amir"],
+    "Sara, Amir": ["Sara", "Amir"],
+    "Sara and Amir": ["Sara", "Amir"],
+    "Sara, Amir & Lin": ["Sara", "Amir", "Lin"],
+  };
+  for (const [seg, expected] of Object.entries(variants)) {
+    check(`"${seg}" parses as ${expected.length} owners`, () => {
+      const items = sandbox.lxParseAgenda(`1. Roadmap — ${seg} — 10 min`);
+      assertEqual(JSON.stringify(items[0].owners), JSON.stringify(expected));
+      assertEqual(items[0].owner, expected[0], "owner should stay owners[0] for backward compatibility");
+    });
+  }
+  check("a 4-token single name still fails cleanly (no owner), not a crash", () => {
+    const items = sandbox.lxParseAgenda("1. Roadmap — Sara Jane Ann Doe — 10 min");
+    assertEqual(items[0].owners.length, 0);
+  });
+  check("noise like 'table topic, 10 min' never becomes an owner", () => {
+    const items = sandbox.lxParseAgenda("1. AOB — table topic, 10 min");
+    assertEqual(items[0].owners.length, 0);
+  });
+}
+{
+  // End-to-end: both co-presenters get credited as presenters (not just
+  // the first), each against the item's full planned minutes, with a
+  // disclosure note explaining why.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. KPI review — Sara & Amir — 10 min\n2. Budget — Omar — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: KPI review time, activation is up this week overall for us.",
+    "[10:02] Amir: I will add the roadmap context on top of that too today.",
+    "[10:05] Omar: Budget check, we are under plan for the quarter this time.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const names = ext.presenters.map(p => p.name).sort();
+  check("both co-presenters appear in the presenters table", () =>
+    assertEqual(JSON.stringify(names), JSON.stringify(["Amir", "Omar", "Sara"])));
+  check("each co-presenter is credited with the item's full planned minutes", () => {
+    const sara = ext.presenters.find(p => p.name === "Sara");
+    const amir = ext.presenters.find(p => p.name === "Amir");
+    assertEqual(sara.planned_minutes, 10);
+    assertEqual(amir.planned_minutes, 10);
+  });
+  check("multi-presenter disclosure note fires", () =>
+    assertTrue(ext.quality.notes.some(n => /multiple presenters/.test(n)), JSON.stringify(ext.quality.notes)));
+  check("agenda_items carries the owners array through to the extraction JSON", () => {
+    const kpi = ext.agenda_items.find(i => i.title === "KPI review");
+    assertEqual(JSON.stringify(kpi.owners), JSON.stringify(["Sara", "Amir"]));
+  });
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Unmatched agenda items: counted as not-covered, not scored 0 on adherence ===");
+{
+  // Regression: an item the keyword matcher can't locate used to get
+  // actual_minutes=0, scoring "Avg time adherence" as a hard 0 -- a
+  // matcher failure presented as a measured fact. It should still count
+  // as NOT COVERED (a real finding) but drop out of time adherence.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min\n2. Nonexistent topic zzz — Sara — 10 min";
+  els.aTrans.value = "[10:00] Sara: Let's review the budget numbers for this quarter in detail today.\n[10:05] Sara: Spend is tracking under plan overall for the year.";
+  const ext = sandbox.localExtract();
+  const missed = ext.agenda_items.find(i => i.title === "Nonexistent topic zzz");
+  check("unmatched item has actual_minutes = null, not 0", () => assertNull(missed.actual_minutes));
+  check("unmatched item is not substantive (still counts as not-covered)", () => assertTrue(missed.substantive === false));
+  const model = sandbox.compute(ext);
+  check("Coverage rate reflects the miss (1 of 2 covered)", () =>
+    assertEqual(model.metrics.find(m => m.label === "Coverage rate").disp, "50.0% · 1/2"));
+  check("Avg time adherence excludes the unmatched item rather than scoring it 0", () => {
+    // only the matched item (10 planned vs its actual span) feeds the average
+    const m = model.metrics.find(x => x.label === "Avg time adherence");
+    assertTrue(m.score !== null && m.score > 0, "expected a real adherence score, not dragged to 0 by the miss");
+  });
+}
+{
+  // Regression for the crash found during exploration: two agenda items
+  // whose keywords both hit the SAME utterance used to give the earlier
+  // item an empty span (`_end === _first`), and `evi(span[0])` threw on
+  // `undefined`. claimedFirsts now guarantees unique anchors.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min\n2. Budget signoff — Sara — 5 min";
+  els.aTrans.value = "[10:00] Sara: Quick budget review and signoff together in one go today.\n[10:05] Sara: Sounds good, moving on now to the next item.";
+  check("duplicate keyword hit on one utterance does not crash extraction", () => {
+    const ext = sandbox.localExtract();
+    assertTrue(Array.isArray(ext.agenda_items) && ext.agenda_items.length === 2);
+  });
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Zero-count metrics never masquerade as a measured zero (engine v1.4) ===");
+{
+  // Regression: a regex finding nothing is "no evidence", not "evidence
+  // of zero". feedback_instances used to always be a number (0 when the
+  // detector didn't fire), scoring a hard 0/100 on band [0,8] and
+  // dragging D5 down on no real evidence.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = "[10:00] Sara: We reviewed the budget figures for the quarter in detail today.\n[10:05] Sara: Overall spend is tracking under plan for the year ahead.";
+  const ext = sandbox.localExtract();
+  check("feedback_instances is null (not 0) when no praise phrases are detected", () =>
+    assertNull(ext.interaction.feedback_instances));
+  check("zero-feedback disclosure fires", () =>
+    assertTrue(ext.quality.notes.some(n => /no feedback phrases detected/.test(n)), JSON.stringify(ext.quality.notes)));
+  const model = sandbox.compute(ext);
+  check("Feedback instances metric is Not Assessable, not scored 0/100", () =>
+    assertNull(model.metrics.find(m => m.label === "Feedback instances").score));
+}
+{
+  // Sanity: genuine feedback still scores normally (0 isn't over-corrected
+  // into always-null).
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  check("real feedback phrases still produce a positive count", () =>
+    assertTrue(ext.interaction.feedback_instances > 0));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Decisions: full text + speaker attribution (engine v1.4) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  check("decision text is not truncated at 80 characters", () =>
+    assertTrue(ext.outcomes.decisions.some(d => d.text.length > 80), "expected at least one decision over 80 chars: " +
+      JSON.stringify(ext.outcomes.decisions.map(d => d.text.length))));
+  check("every decision carries its speaker", () =>
+    assertTrue(ext.outcomes.decisions.every(d => typeof d.speaker === "string" && d.speaker.length > 0), JSON.stringify(ext.outcomes.decisions)));
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  check("rendered decision shows the speaker name inline", () =>
+    assertTrue(/<b>Sara:<\/b>/.test(els.report.innerHTML) || /<b>Amir:<\/b>/.test(els.report.innerHTML), "expected a bold speaker prefix in the Decisions card"));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Questions listed by name in Flags (engine v1.4) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  check("interaction.questions is populated with individual question records", () =>
+    assertTrue(Array.isArray(ext.interaction.questions) && ext.interaction.questions.length > 0));
+  check("each question carries text, asker, status and evidence", () => {
+    const q = ext.interaction.questions[0];
+    assertTrue(typeof q.text === "string" && q.text.length > 0);
+    assertTrue(["answered", "deferred", "unanswered"].includes(q.status));
+    assertTrue(typeof q.evidence === "string" && q.evidence.length > 0);
+  });
+  const model = sandbox.compute(ext);
+  check("a deferred question is listed by full text in the flags, not just a count", () => {
+    const f = model.flags.find(x => /^Deferred question/.test(x.text));
+    if (!f) throw new Error("expected a per-question deferred flag on the sample meeting");
+    assertTrue(f.text.includes("?"), "expected the full question text in the flag");
+    assertTrue(typeof f.evi === "string" && f.evi.length > 0, "expected an evidence citation on the flag");
+  });
+}
+{
+  // Regression: on the no-speaker-labels path, questions_answered/deferred
+  // are null (genuinely not assessable), but the old `||0` coercion in
+  // `unans` turned that into "every question unanswered" and flagged all
+  // of them high-severity -- directly contradicting the "not assessable"
+  // info note fired in the same run.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aTrans.value = "[10:00] Any objections to the plan here today at all?\n[10:05] It looks like we are all set for now, thanks.";
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  check("interaction.questions is null when speaker labels are unavailable", () =>
+    assertNull(ext.interaction.questions));
+  check("no 'unanswered question' flags fire when Q&A pairing is not assessable", () =>
+    assertTrue(!model.flags.some(f => /unanswered/i.test(f.text)), JSON.stringify(model.flags.map(f => f.text))));
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Anonymize toggle (agent spec sec1/sec5: 'Participation table — anonymizable') ===");
 {
   const { sandbox, els } = boot(APP_PATH);
@@ -426,13 +608,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v1.3'", () =>
-    assertTrue(/engine v1\.3/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v1.4'", () =>
+    assertTrue(/engine v1\.4/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "1.3"));
+    assertEqual(sandbox.ENGINE_VERSION, "1.4"));
 }
 
 // ---------------------------------------------------------------------
