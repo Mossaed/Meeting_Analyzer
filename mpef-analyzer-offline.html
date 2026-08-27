@@ -154,7 +154,7 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
         </div>
         <div class="frow">
           <div><label for="mInv">Invitees (count)</label><input type="number" id="mInv" placeholder="10" min="1"></div>
-          <div></div>
+          <div><label for="anonToggle" style="display:flex;align-items:center;gap:6px;margin-top:20px;cursor:pointer"><input type="checkbox" id="anonToggle" style="width:auto;margin:0"> Anonymize participants</label></div>
         </div>
       </div>
     </div>
@@ -187,6 +187,24 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
           <div class="ofbtns"><button class="btn btn-run" id="scoreJsonBtn" style="flex:1">3 · Score pasted JSON</button></div>
         </div>
         <div class="hint"><b>Extract &amp; score locally</b> runs the entire pipeline on this device — a deterministic rule engine reads the artifacts, then the same scoring code renders the dashboard. Nothing leaves this machine and no connection is ever used. Best with timestamped, speaker-labeled transcripts. For higher-quality extraction on messy input, use the <b>any-AI route</b> below in any chat tool you like, then paste its JSON back — scoring is identical. Missing evidence marks its dimensions <b>Not Assessable</b> — never estimated.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cap"><h2>Advanced evidence</h2><span class="tag">optional</span></div>
+      <div class="bd">
+        <details>
+          <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--navy)">D7 Follow-through — from your prior meeting</summary>
+          <div class="hint" style="margin-top:8px">Longitudinal only — always shown separately and <b>never</b> weighted into the MPI. Leave blank if you didn't track a prior meeting.</div>
+          <div class="frow" style="margin-top:10px">
+            <div><label for="fPriorDue">Prior actions due by now</label><input type="number" id="fPriorDue" min="0"></div>
+            <div><label for="fPriorClosed">…closed or updated</label><input type="number" id="fPriorClosed" min="0"></div>
+          </div>
+          <div class="frow">
+            <div><label for="fPriorTopics">Prior unresolved topics</label><input type="number" id="fPriorTopics" min="0"></div>
+            <div><label for="fPriorRecur">…reappeared unresolved</label><input type="number" id="fPriorRecur" min="0"></div>
+          </div>
+        </details>
       </div>
     </div>
   </aside>
@@ -280,7 +298,7 @@ const COMMON_RULES = `STRICT RULES
 - Output ONE minified JSON object ONLY — no markdown, no backticks, no commentary, no trailing text.
 - Extract and count ONLY what the artifacts support. Use null for anything not derivable. NEVER invent or estimate beyond the text.
 - If timestamps exist, derive minutes from them (note the method in quality.notes if estimating). No timestamps: leave time fields null.
-- evidence strings: shortest reference possible, e.g. "t=10:31" or "L14" (max 10 chars).
+- evidence strings: shortest reference possible, e.g. "t=10:31" or "L14" (max 14 chars).
 - Be extremely terse. Truncated output is a failure: stay well under your token limit.`;
 
 /* repair a truncated JSON response: close open strings/brackets, backtrack if needed */
@@ -320,12 +338,12 @@ function buildFullPrompt() {
     scheduled_minutes: +$("mSched").value || null, invitees: +$("mInv").value || null };
   return `You are the extraction stage of the MPEF meeting-scoring pipeline. Analyze the meeting artifacts below and reply with ONLY one JSON object (no markdown, no commentary) exactly matching:
 
-{"meeting":{"title":str|null,"date":str|null,"scheduled_minutes":num|null,"actual_minutes":num|null,"start_delay_minutes":num|null,"dead_time_minutes":num|null,"off_agenda_minutes":num|null,"total_talk_minutes":num|null,"avg_decision_latency_minutes":num|null,"invitees":num|null},"agenda_items":[{"title":str,"planned_minutes":num|null,"planned_order":num,"actual_minutes":num|null,"actual_order":num|null,"substantive":bool,"decision_expected":bool,"decision_made":bool,"closed":bool}],"participants":[{"name":str,"present":bool,"minutes_present":num|null,"talk_minutes":num|null,"questions":num,"answers":num,"proposals":num,"risks":num,"info":num}],"presenters":[{"name":str,"planned_minutes":num|null,"actual_minutes":num|null,"words":num|null,"filler_words":num|null,"questions_received":num,"questions_answered":num,"median_response_latency_seconds":num|null,"longest_turn_minutes":num|null}],"interaction":{"questions_raised":num,"questions_answered":num,"questions_deferred":num,"feedback_instances":num,"chat_substantive_messages":num|null,"interruptions_per_10min":num|null,"turns_per_10min":num|null},"outcomes":{"actions_total":num,"actions_with_owner_and_due":num,"transcript_items":num,"mom_items":num|null,"matched_items":num|null,"decisions":[{"text":str,"evidence":str}],"actions":[{"text":str,"owner":str|null,"due":str|null,"evidence":str}]},"quality":{"has_timestamps":bool,"has_speaker_labels":bool,"notes":[str]}}
+{"meeting":{"title":str|null,"date":str|null,"scheduled_minutes":num|null,"actual_minutes":num|null,"start_delay_minutes":num|null,"dead_time_minutes":num|null,"off_agenda_minutes":num|null,"total_talk_minutes":num|null,"avg_decision_latency_minutes":num|null,"invitees":num|null},"agenda_items":[{"title":str,"planned_minutes":num|null,"planned_order":num,"actual_minutes":num|null,"actual_order":num|null,"substantive":bool,"decision_expected":bool,"decision_made":bool,"closed":bool,"evidence":str|null}],"participants":[{"name":str,"present":bool,"minutes_present":num|null,"talk_minutes":num|null,"questions":num,"answers":num,"proposals":num,"risks":num,"info":num}],"presenters":[{"name":str,"planned_minutes":num|null,"actual_minutes":num|null,"words":num|null,"filler_words":num|null,"questions_received":num,"questions_answered":num,"median_response_latency_seconds":num|null,"longest_turn_minutes":num|null}],"interaction":{"questions_raised":num,"questions_answered":num,"questions_deferred":num,"feedback_instances":num,"chat_substantive_messages":num|null,"interruptions_per_10min":num|null,"turns_per_10min":num|null},"outcomes":{"actions_total":num,"actions_with_owner_and_due":num,"transcript_items":num,"mom_items":num|null,"matched_items":num|null,"decisions":[{"text":str,"evidence":str}],"actions":[{"text":str,"owner":str|null,"due":str|null,"evidence":str}]},"quality":{"has_timestamps":bool,"has_speaker_labels":bool,"notes":[str]}}
 
 ${COMMON_RULES}
 - substantive = real discussion, not a passing mention. decision_expected = agenda wording implies a decision. closed = ended with a decision or an owned action.
 - transcript_items = decisions + actions found in the transcript; mom_items/matched_items only if minutes provided.
-- Caps: agenda_items <=12, participants <=12, presenters <=6, decisions <=6, actions <=8, notes <=4.
+- Caps: agenda_items <=12, participants <=12, presenters <=6, decisions <=6, actions <=8, notes <=6.
 - User-supplied metadata (trust over inference): ${JSON.stringify(meta)}
 
 ${artifactBlock()}`;
@@ -580,11 +598,12 @@ function localExtract(){
     it._act = actions.some(a => a._i >= it._first && a._i < it._end);
     it.decision_made = !!it._dec;
     it.closed = !!(it._dec || it._act);
+    it.evidence = evi(span[0]);
   });
   items.forEach(it => {
     it.decision_expected = RX.decExp.test(it.title);
     if (it._first < 0){ it.actual_minutes = 0; it.actual_order = null; it.substantive = false;
-      it.decision_made = false; it.closed = false; }
+      it.decision_made = false; it.closed = false; it.evidence = null; }
   });
   const latPerItem = found.filter(i => i._dec && isNum(spoken[i._dec._i].t) && isNum(i._span[0].t))
                           .map(i => spoken[i._dec._i].t - i._span[0].t);
@@ -686,7 +705,7 @@ function localExtract(){
     agenda_items: items.slice(0, 12).map(i => ({ title: i.title, planned_minutes: i.planned_minutes,
       planned_order: i.planned_order, actual_minutes: i.actual_minutes, actual_order: i.actual_order,
       substantive: !!i.substantive, decision_expected: !!i.decision_expected,
-      decision_made: !!i.decision_made, closed: !!i.closed })),
+      decision_made: !!i.decision_made, closed: !!i.closed, evidence: i.evidence || null })),
     participants,
     presenters: presenters.slice(0, 6),
     interaction: { questions_raised: qEvents.length,
@@ -699,7 +718,13 @@ function localExtract(){
     outcomes: { actions_total: actions.length,
       actions_with_owner_and_due: actions.filter(a => a.owner && a.due).length,
       transcript_items: txItems, mom_items: momItems, matched_items: matched,
-      decisions: decisions.map(({_i, ...d}) => d), actions: actions.map(({_i, ...a}) => a) },
+      decisions: decisions.map(({_i, ...d}) => d), actions: actions.map(({_i, ...a}) => a),
+      /* D7 (info only, never weighted into the MPI) — always user-supplied,
+         since no single meeting's artifacts can attest to a *prior* one */
+      follow_through: { prior_actions_due: +$("fPriorDue").value || null,
+        prior_actions_closed: +$("fPriorClosed").value || null,
+        prior_unresolved_topics: +$("fPriorTopics").value || null,
+        prior_unresolved_recurring: +$("fPriorRecur").value || null } },
     quality: { has_timestamps: hasTS, has_speaker_labels: speakers.length > 0 && !pseudo,
       /* stable sort keeps push order within a tier, so higher-priority (more
          meeting-specific) disclosures always survive the spec's 6-note cap */
@@ -812,6 +837,20 @@ function compute(ext) {
   const fidelity = (isNum(precision) && isNum(recall)) ? (precision+recall)/2 : null;
   const topicRes = isNum(unresolved) ? 1 - unresolved : null;
 
+  /* --- D7 Follow-through (info only — weight 0; deliberately excluded from
+     CONFIG.dims so it can never enter the per-dimension average or the MPI,
+     same as the workbook's Scorecard rows 38-39). Always about the *prior*
+     meeting, so no single meeting's artifacts can supply it — JSON wins if
+     a route ever populates it, DOM is the normal path either way. */
+  const ft = out.follow_through || {};
+  const priorDue = isNum(ft.prior_actions_due) ? ft.prior_actions_due : (+$("fPriorDue").value || null);
+  const priorClosed = isNum(ft.prior_actions_closed) ? ft.prior_actions_closed : (+$("fPriorClosed").value || null);
+  const priorTopics = isNum(ft.prior_unresolved_topics) ? ft.prior_unresolved_topics : (+$("fPriorTopics").value || null);
+  const priorRecur = isNum(ft.prior_unresolved_recurring) ? ft.prior_unresolved_recurring : (+$("fPriorRecur").value || null);
+  const closure = (isNum(priorDue) && priorDue > 0 && isNum(priorClosed)) ? priorClosed / priorDue : null;
+  const recurrence = (isNum(priorTopics) && priorTopics > 0 && isNum(priorRecur)) ? priorRecur / priorTopics : null;
+  const recurRes = isNum(recurrence) ? 1 - recurrence : null;
+
   /* --- metric table --- */
   const M = (dim,label,raw,disp,score) => ({dim,label,raw,disp,score: isNum(raw)? score : null});
   const metrics = [
@@ -842,6 +881,8 @@ function compute(ext) {
     M("D6","Action completeness",complete,isNum(complete)?pct(complete)+" · "+(out.actions_with_owner_and_due||0)+"/"+out.actions_total:"—",isNum(complete)?frac(complete):null),
     M("D6","Topic resolution (1−unresolved)",topicRes,pct(topicRes),isNum(topicRes)?frac(topicRes):null),
     M("D6","MoM fidelity",fidelity,pct(fidelity),isNum(fidelity)?frac(fidelity):null),
+    M("D7","Prior-action closure (info only)",closure,isNum(closure)?pct(closure)+" · "+priorClosed+"/"+priorDue:"—",isNum(closure)?frac(closure):null),
+    M("D7","Topic recurrence, lower better (info only)",recurRes,pct(recurRes),isNum(recurRes)?frac(recurRes):null),
   ];
 
   const dims = {};
@@ -861,11 +902,17 @@ function compute(ext) {
   if (isNum(overrun) && overrun > 0.10) F("med", `Ran ${(overrun*100).toFixed(0)}% over the scheduled length`);
   if (unans > 0) F("high", `${unans} question${unans>1?"s":""} left unanswered`);
   if ((inter.questions_deferred||0) > 0) F("info", `${inter.questions_deferred} question${inter.questions_deferred>1?"s":""} deferred ("take offline")`);
-  items.filter(i => i.substantive && !i.closed).forEach(i => F("high", `Unresolved: "${i.title}" — discussed but closed with no decision or action`));
+  items.filter(i => i.substantive && !i.closed).forEach(i => F("high", `Unresolved: "${i.title}" — discussed but closed with no decision or action`, i.evidence));
   const missOwn = Math.max(0,(out.actions_total||0) - (out.actions_with_owner_and_due||0));
-  if (missOwn > 0) F("med", `${missOwn} action item${missOwn>1?"s":""} missing an owner or a due date`);
+  if (missOwn > 0) {
+    const firstGap = (out.actions||[]).find(a => !(a.owner && a.due));
+    F("med", `${missOwn} action item${missOwn>1?"s":""} missing an owner or a due date`, firstGap && firstGap.evidence);
+  }
   if (isNum(fidelity) && fidelity < 0.8) F("med", `Minutes capture only ${pct(recall)} of transcript decisions/actions`);
-  if (isNum(dyield) && dyield < 1) F("high", `${decExp - decMade} expected decision${decExp-decMade>1?"s":""} not made`);
+  if (isNum(dyield) && dyield < 1) {
+    const firstMissed = items.find(i => i.decision_expected && !i.decision_made);
+    F("high", `${decExp - decMade} expected decision${decExp-decMade>1?"s":""} not made`, firstMissed && firstMissed.evidence);
+  }
   if (!isNum(out.mom_items)) F("info", "Minutes not provided — MoM fidelity not assessable");
   if (!isNum(inter.chat_substantive_messages)) F("info", "Chat log not provided — chat engagement not assessable");
   if (!hasAttData) F("info", "Attendance log not provided — attendance, retention & active-contributor metrics not assessable (silent attendees are invisible in a transcript)");
@@ -899,6 +946,18 @@ function card(title, tag, inner) {
 }
 
 function render(r) {
+  /* agent spec sec1/sec5: "Anonymize participants as P1, P2... when the
+     'anonymize' option is set" — scoped to the Participation table, per
+     sec5 item 5 ("Participation table — anonymizable"); presenter and
+     decision/action-owner names are unaffected, since the spec does not
+     list those as anonymizable and doing so silently would be misleading. */
+  const anonOn = $("anonToggle").checked;
+  const anonMap = new Map();
+  const dispName = name => {
+    if (!anonOn) return name;
+    if (!anonMap.has(name)) anonMap.set(name, "P" + (anonMap.size + 1));
+    return anonMap.get(name);
+  };
   const ttl = esc($("mTitle").value || r.ext.meeting?.title || "Untitled meeting");
   const date = esc($("mDate").value || r.ext.meeting?.date || "");
   const bandChip = r.band
@@ -932,7 +991,7 @@ function render(r) {
       <th style="width:44px">Dim</th><th>Metric</th><th class="num">Raw</th><th class="num" style="width:70px">Score</th></tr></thead><tbody>` +
     r.metrics.map(m => `<tr><td class="dimtag">${m.dim}</td><td>${m.label}</td>
       <td class="num">${m.disp}</td><td class="num">${scorePill(m.score)}</td></tr>`).join("") +
-    `</tbody></table><div class="foot" style="padding:9px 16px 12px">Counts are shown beside ratio metrics — tiny denominators (like 1/1) can legitimately score 0 or 100; judge them by the evidence size. \u201Cn/a\u201D means the supplied artifacts genuinely can\u2019t measure it.</div>`);
+    `</tbody></table><div class="foot" style="padding:9px 16px 12px">Counts are shown beside ratio metrics — tiny denominators (like 1/1) can legitimately score 0 or 100; judge them by the evidence size. \u201Cn/a\u201D means the supplied artifacts genuinely can\u2019t measure it. D7 rows are longitudinal and informational only — filled from the optional “Advanced evidence” card, weight 0, and never enter the dimension averages or the MPI.</div>`);
 
   const agRows = r.items.map(i => {
     const st = !i.substantive ? ["#98A2B3","skipped"] : (i.closed ? ["var(--green)","closed"] : ["var(--coral)","open"]);
@@ -958,12 +1017,12 @@ function render(r) {
   const totTalk = r.people.reduce((a,p)=>a+(isNum(p.talk_minutes)?p.talk_minutes:0),0);
   const paRows = r.people.map(p => {
     const share = totTalk>0 && isNum(p.talk_minutes) ? p.talk_minutes/totTalk : null;
-    return `<tr><td>${esc(p.name)}</td>
+    return `<tr><td>${esc(dispName(p.name))}</td>
       <td style="min-width:170px"><div class="sharebar"><div class="tr"><div class="fl" style="width:${isNum(share)?share*100:0}%"></div></div>
         <span class="num" style="font-family:var(--mono);font-size:11px">${pct(share)}</span></div></td>
       <td class="mixdots">Q${p.questions||0} · A${p.answers||0} · P${p.proposals||0} · R${p.risks||0} · I${p.info||0}</td></tr>`;
   }).join("");
-  const parts = card("Participation", "talk share · contribution mix", `<table><thead><tr>
+  const parts = card("Participation", anonOn ? "talk share · contribution mix · anonymized" : "talk share · contribution mix", `<table><thead><tr>
       <th>Attendee</th><th>Talk share</th><th>Contributions</th></tr></thead>
       <tbody>${paRows || `<tr><td colspan="3" style="color:var(--muted)">No participants extracted</td></tr>`}</tbody></table>`);
 
@@ -976,7 +1035,7 @@ function render(r) {
 
   const sevCol = {high:"var(--red)", med:"var(--amber)", info:"#98A2B3"};
   const flags = card("Flags", "deterministic checks", (r.flags.length
-      ? r.flags.map(f=>`<div class="flag"><span class="sev" style="background:${sevCol[f.sev]}"></span><span>${esc(f.text)}</span></div>`).join("")
+      ? r.flags.map(f=>`<div class="flag"><span class="sev" style="background:${sevCol[f.sev]}"></span><span>${esc(f.text)}</span>${f.evi?`<span class="evi">${esc(f.evi)}</span>`:""}</div>`).join("")
       : `<div class="flag"><span class="sev" style="background:var(--green)"></span><span>No flags raised.</span></div>`));
 
   const method = card("Method & configuration", "printed for audit", `<div class="foot">

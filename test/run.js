@@ -53,6 +53,13 @@ console.log("=== Fixture A: built-in Sample meeting (local rule engine) ===");
   }
   check("condensed-transcript disclosure fires (honest-measurement rule 1)", () =>
     assertTrue(ext.quality.notes.some(n => /condensed transcript/.test(n)), "notes: " + JSON.stringify(ext.quality.notes)));
+  check("agenda_items carry an evidence citation (agent spec sec2/sec5: 'citing a timestamp or line reference')", () =>
+    assertTrue(ext.agenda_items.every(i => typeof i.evidence === "string" && i.evidence.length > 0), JSON.stringify(ext.agenda_items.map(i => i.evidence))));
+  check("an 'Unresolved' flag cites the agenda item's own evidence, not blank", () => {
+    const f = model.flags.find(x => /^Unresolved:/.test(x.text));
+    if (!f) throw new Error("expected at least one Unresolved flag on the sample meeting");
+    assertTrue(typeof f.evi === "string" && f.evi.length > 0, "flag evidence missing: " + JSON.stringify(f));
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -201,6 +208,39 @@ console.log("\n=== Tolerant JSON repair (Route B constrained-output resilience) 
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== D7 Follow-Through (info only, weight 0, spec sec3) ===");
+{
+  const { sandbox } = boot(APP_PATH);
+  const withFT = {
+    ...WORKBOOK_EXTRACTION,
+    outcomes: {
+      ...WORKBOOK_EXTRACTION.outcomes,
+      follow_through: { prior_actions_due: 6, prior_actions_closed: 4, prior_unresolved_topics: 3, prior_unresolved_recurring: 1 },
+    },
+  };
+  const model = sandbox.compute(withFT);
+  check("D7 does not appear in CONFIG.dims (cannot enter the per-dimension average)", () =>
+    assertTrue(!Object.prototype.hasOwnProperty.call(sandbox.CONFIG.dims, "D7"), "CONFIG.dims: " + JSON.stringify(sandbox.CONFIG.dims)));
+  check("MPI is unchanged whether or not D7 inputs are supplied", () => {
+    const modelWithout = sandbox.compute(WORKBOOK_EXTRACTION);
+    assertClose(model.mpi, modelWithout.mpi, 1e-9, "mpi");
+  });
+  check("Prior-action closure matches workbook Outcomes!B20 (4/6 = 66.667)", () => {
+    const m = model.metrics.find(x => x.label === "Prior-action closure (info only)");
+    assertClose(m.score, 66.6666666666667, 1e-6, "closure score");
+  });
+  check("Topic recurrence (info) matches workbook Outcomes!B23 inverted (1 - 1/3 = 66.667)", () => {
+    const m = model.metrics.find(x => x.label === "Topic recurrence, lower better (info only)");
+    assertClose(m.score, 66.6666666666667, 1e-6, "recurrence score");
+  });
+  check("D7 metrics are Not Assessable when no prior-meeting data is supplied", () => {
+    const modelWithout = sandbox.compute(WORKBOOK_EXTRACTION);
+    assertNull(modelWithout.metrics.find(x => x.label === "Prior-action closure (info only)").score);
+    assertNull(modelWithout.metrics.find(x => x.label === "Topic recurrence, lower better (info only)").score);
+  });
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Route B / JSON purity: compute() must not read stale DOM state ===");
 {
   // Regression for a bug where compute() OR'd the attendance-textarea's raw
@@ -288,6 +328,26 @@ console.log("\n=== Honesty-note prioritization under the 6-note cap ===");
     // Only assert displacement if the budget was actually oversubscribed enough to matter.
     if (!hasBoilerplate) assertTrue(hasCondensedOrGate, "boilerplate correctly dropped in favor of gate notes");
   });
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Anonymize toggle (agent spec sec1/sec5: 'Participation table — anonymizable') ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+
+  check("render() does not throw with anonymize off", () => sandbox.render(model));
+  check("participation table shows real names when anonymize is off", () =>
+    assertTrue(els.report.innerHTML.includes("Sara"), "expected 'Sara' in report HTML"));
+
+  els.anonToggle.checked = true;
+  check("render() does not throw with anonymize on", () => sandbox.render(model));
+  check("participation table uses P1/P2… once anonymize is on", () =>
+    assertTrue(/>P1</.test(els.report.innerHTML) || />P1<\/td>/.test(els.report.innerHTML), "expected an anonymized 'P1' label in report HTML"));
+  check("outcomes register (decision/action owners) is unaffected by anonymize (spec scopes it to the participation table only)", () =>
+    assertTrue(els.report.innerHTML.includes("Lina") || els.report.innerHTML.includes("Omar"), "expected an action owner's real name to still appear"));
 }
 
 // ---------------------------------------------------------------------
