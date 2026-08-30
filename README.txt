@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v1.4" - the filename never changes
+3. The dark header should read "engine v1.5" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -51,6 +51,11 @@ GOOD TO KNOW
   Dead time and interruption rate still can't be read from text at all -
   if you have them from a recording, the "Advanced evidence" section on
   the left lets you enter them by hand to unlock those metrics.
+- Agenda items are matched to the transcript by stemmed keyword overlap, not
+  exact wording, so "Q3 forecast" can match "forecasting for the quarter".
+  If an item genuinely can't be matched (very different wording, or truly
+  not discussed) it's labeled "not found" in the coverage map - distinct
+  from "skipped" - and named in the flags panel so you can check it.
 - Decisions show the full statement and who said it, not a clipped
   fragment. Unanswered and deferred questions are listed by name in the
   flags panel, not just counted.

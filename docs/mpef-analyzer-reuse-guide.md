@@ -1,6 +1,6 @@
 # MPEF Analyzer — Reuse & Redeployment Guide
 
-**Applies to:** engine v1.4 · offline edition (`mpef-analyzer-offline.html`) and connected edition (`mpef-analyzer.html`)
+**Applies to:** engine v1.5 · offline edition (`mpef-analyzer-offline.html`) and connected edition (`mpef-analyzer.html`)
 **Audience:** anyone who wants to run, distribute, customize, or redeploy the app in a new environment.
 
 ---
@@ -35,7 +35,7 @@ Scoring code and configuration are identical in both, so the same evidence produ
 
 The local engine also writes its extraction JSON into the editable step-2 box, so users can inspect, correct any count, and re-score instantly — regardless of route.
 
-## 4. Honest-measurement rules built into v1.4
+## 4. Honest-measurement rules built into v1.5
 
 These exist so scores are never artifacts of note-taking; they are the answer to "why is this metric n/a?":
 
@@ -43,10 +43,11 @@ These exist so scores are never artifacts of note-taking; they are the answer to
 2. **Timestamp resolution.** Response latency requires second-level timestamps (`HH:MM:SS`); minute-level stamps mark it n/a.
 3. **Attendance grounding.** Attendance rate, retention, and active-contributor ratio require attendance data (log pasted, or `minutes_present` in pasted JSON) — silent attendees are invisible in a transcript, so speaker-only data would fake these.
 4. **Audio-only signals.** Dead time / silence and interruption overlaps are never scored from text.
-5. **Off-agenda by keyword proximity (v1.4).** Local extraction scores off-agenda ratio by classifying each substantive utterance (≥8 words, so backchannel is never judged) as off-agenda when it matches none of the agenda's keywords — always with a disclosure note that this is proximity matching, not semantic understanding. A manually-entered value (Advanced evidence card) always overrides it. Route B/C still provide true semantic mapping.
-6. **Zero-count honesty (v1.4).** A detector finding nothing is absence of evidence, not evidence of zero: `feedback_instances` is Not Assessable (not a scored 0) when no praise/agreement phrases are detected, and an agenda item the keyword matcher can't locate is Not Assessable on its own time-adherence — but still counts as not-covered for Coverage rate, which is a real finding.
-7. **Sample-size transparency.** Ratio metrics display their counts (e.g. `100% · 1/1`); tiny denominators can legitimately score 0 or 100 and are visibly thin.
-8. **Not-a-name guard.** Lines like `Decision: …` or `Action: …` are never mistaken for speakers.
+5. **Off-agenda by keyword proximity.** Local extraction scores off-agenda ratio by classifying each substantive utterance (≥8 words, so backchannel is never judged) as off-agenda when it matches none of the agenda's keywords — always with a disclosure note that this is proximity matching, not semantic understanding. A manually-entered value (Advanced evidence card) always overrides it. Route B/C still provide true semantic mapping.
+6. **Zero-count honesty.** A detector finding nothing is absence of evidence, not evidence of zero: `feedback_instances` is Not Assessable (not a scored 0) when no praise/agreement phrases are detected.
+7. **Found vs. discussed (v1.5).** An agenda item's status distinguishes two different failures the old single "skipped" label conflated: an item the matcher couldn't locate anywhere in the transcript (**not found** — likely different wording than the agenda, flagged by name so you can check and correct it) from one that *was* located but wasn't real discussion (**skipped**). Coverage rate counts both as not-covered — a genuinely skipped item is equally unlocatable, so excluding either would gut the metric — but only "skipped" is a claim about what happened in the meeting.
+8. **Sample-size transparency.** Ratio metrics display their counts (e.g. `100% · 1/1`); tiny denominators can legitimately score 0 or 100 and are visibly thin.
+9. **Not-a-name guard.** Lines like `Decision: …` or `Action: …` are never mistaken for speakers.
 
 The flags panel states which of these rules fired and why, prioritizing meeting-specific findings over generic ones when more than the agent spec's 6-note budget fire in one run (§2 of the agent spec: "notes <=6").
 
@@ -101,7 +102,7 @@ Other tuning points, each clearly labeled in the source: `RX` (regex lexicons fo
 
 ## 7. Verifying a deployment
 
-Open the file and confirm the dark header reads **engine v1.4** — the filename never changes between versions, so this stamp is the only reliable build check. Then press **Sample → Extract & score locally**: on an unmodified v1.4 build this deterministically renders **MPI 70.92 · Productive**, six scored dimensions, and a flags panel that includes the condensed-transcript and off-agenda-keyword-matching disclosures. Full acceptance steps live in the companion checklist.
+Open the file and confirm the dark header reads **engine v1.5** — the filename never changes between versions, so this stamp is the only reliable build check. Then press **Sample → Extract & score locally**: on an unmodified v1.5 build this deterministically renders **MPI 70.92 · Productive** (unchanged from v1.4), six scored dimensions, and a flags panel that includes the condensed-transcript and off-agenda-keyword-matching disclosures. Full acceptance steps live in the companion checklist.
 
 For the offline edition you can additionally prove network silence: search the file for `fetch(` — the only permitted match is none at all. (A bare search for `http` is not the right test: the file legitimately contains a URL-detection regex, `/^https?/i`, used to keep a pasted link from being mistaken for a speaker name.) Or open it with the browser's network tab recording and confirm zero requests beyond the file itself.
 
@@ -109,7 +110,8 @@ For the offline edition you can additionally prove network silence: search the f
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Header doesn't say engine v1.4 | Stale copy (identical filename) | Replace the file; re-share the zip |
+| Header doesn't say engine v1.5 | Stale copy (identical filename) | Replace the file; re-share the zip |
+| Agenda item shows "not found" | Wording differs from the agenda (paraphrase), or genuinely wasn't discussed | Check the flags panel entry naming it; if it *was* discussed, correct `located`/`substantive`/`evidence` in the editable step-2 JSON and re-score, or rephrase the agenda line closer to the transcript's wording |
 | "Couldn't parse any utterances" | Unrecognized transcript layout | Use `[10:04] Name: text` lines, or paste the raw platform export (VTT/SRT/Teams are auto-detected) |
 | Many metrics show n/a | Honest-measurement rules (§4) fired | Read the flags panel; supply richer artifacts (verbatim transcript, second-level timestamps, attendance log) or use Route B |
 | Scores look extreme (0/100) with counts like 1/1 | Genuine tiny-sample ratios | Judge by the printed counts; more countable events → finer scores |
@@ -120,6 +122,7 @@ For the offline edition you can additionally prove network silence: search the f
 
 ## 9. Version history
 
+**v1.5** — agenda-to-transcript anchoring rewritten as stemmed, scored, best-overlap assignment instead of first-substring-hit, fixing several ways a genuinely-discussed item could render **skipped**; `substantive` redefined by span word count instead of turn count or clock minutes; items the matcher truly can't locate now render **not found**, a distinct status from **skipped**, with a named flag; last-item zero-minute clock artifact guarded with a word-count fallback. No weight, band, or formula changed; the Sample acceptance value is unchanged from v1.4 at **MPI 70.92**.
 **v1.4** — multi-presenter agenda items, credited and disclosed rather than silently dropped; off-agenda ratio scored locally by disclosed keyword-proximity approximation instead of permanently n/a; zero-count honesty gate (a detector finding nothing is Not Assessable, never a scored 0) applied to feedback instances and to agenda items a matcher couldn't locate; full untruncated decision text with speaker attribution; unanswered/deferred questions named individually in the flags panel. Moves the Sample acceptance value from MPI 75.13 to **MPI 70.92**.
 **v1.3** — WebVTT/SRT/Teams normalization; caption-only (no-speaker) fallback; not-a-name guard; Save-as-.txt for huge prompts; 3-token speaker names.
 **v1.2** — attendance/active gating on real attendance data; counts shown beside ratio metrics; version stamp.
@@ -160,6 +163,16 @@ A second pass, driven by real usage, closed five more gaps — again without tou
 - **Off-agenda by keyword matching.** Local extraction scored this permanently Not Assessable, reasoning that true off-agenda detection needs semantic understanding the keyword engine doesn't have. Per user request it's now scored anyway: each substantive utterance (≥8 words) that matches none of the agenda's keywords counts as off-agenda time, always accompanied by a disclosure note that this is proximity matching, not semantic analysis. A manually-entered value (Advanced evidence card) still takes precedence. This activates a fourth D1 metric that was previously always excluded, which is why the Sample acceptance MPI moved from 75.13 to **70.92**.
 - **Two bugs found and fixed along the way**, both in code this pass already touched: two agenda items whose keywords matched the *same* utterance used to produce an empty span and crash on `evi(undefined)` — utterance anchors are now guaranteed unique; and the unanswered-question flag's `||0` coercion (above) that defeated the no-speaker-labels honesty gate.
 - The regression suite grew to 127 checks (`test/run.js`) covering every item above, including both incidental-bug regressions.
+
+## 14. Engine v1.5 changes (agenda-anchoring rewrite, honest "not found")
+
+A report that a discussed item showed **skipped** led to an audit that found seven distinct paths to that one wrong label, all traced to the same design flaw: `substantive` was a single boolean carrying three incompatible meanings — *genuinely not discussed*, *couldn't be located*, and *located but the span looked thin* — and all three rendered as the identical grey dot. Because `substantive` also drove the Coverage rate score, the unresolved-items ratio, and the high-severity "Unresolved" flag, every false skip quietly deflated D1 and the MPI too.
+
+- **Anchoring rewritten as scored best-overlap, not first-hit.** The old anchor for each agenda item was whichever utterance happened to contain the *first* raw substring match of a keyword, in agenda order. That made a passing early mention ("we'll come back to the budget later") steal the anchor from the item's real 12-minute discussion later on, and made two items competing for the same utterance orphan whichever lost. Anchoring is now a global assignment: every item is scored against every utterance by shared *stemmed* keywords (light suffix stripping, so *forecast/forecasting/forecasts* unify), candidates are sorted by score, and assignment proceeds best-score-first with each utterance claimed once. A title like "Q3 review" that used to yield zero usable keywords (both words are stopwords under the old ≥3-char/non-stopword filter) now falls back to raw tokens so it can still match.
+- **`substantive` redefined by span word count.** Turn-count (`span.length >= 2`) and a 1-minute clock floor used to gate this, both of which fail for reasons that have nothing to do with whether real discussion happened: a topic covered thoroughly in one long turn, two anchors landing in the same displayed minute under minute-granularity timestamps, or a no-timestamp transcript where the same floor becomes an undisclosed ~140-word requirement via the word-count time estimate. The gate is now purely spoken-word count in the matched span (with a recorded decision or action always counting as substantive in its own right, regardless of length) — the same test with or without timestamps, immune to where a neighboring item happens to anchor.
+- **"Not found" is now a distinct, honest status.** An item the matcher genuinely cannot locate anywhere in the transcript still counts against Coverage rate (excluding it would let a truly-skipped item hide the same way), but no longer renders as **skipped** — it renders as **not found**, in its own color, with a flag naming every such item so a paraphrase mismatch (different wording than the agenda) is visible and correctable in the editable step-2 JSON, rather than silently misreported as a factual finding about the meeting.
+- **Zero-minute last-item guard.** The final agenda item's actual-minutes used to be computed against the meeting's end timestamp, which can legitimately compute to 0 under minute-granularity stamps even though real content was spoken; it now falls back to the same word-count time estimate used on the no-timestamp path when that happens.
+- The regression suite grew to 141 checks (`test/run.js`), including one test per failure mode identified in the audit and a canary confirming a genuinely-skipped item (the Sample's "AOB", explicitly deferred in the transcript) still reads as skipped after the rewrite.
 
 ---
 *Provided for internal reuse and redistribution by your organization. Keep this guide and the checklist alongside the app file so every recipient can self-serve.*

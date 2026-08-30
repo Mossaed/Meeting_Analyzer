@@ -1,8 +1,8 @@
-# MPEF Analyzer Agent — Deployment Specification v1.4
+# MPEF Analyzer Agent — Deployment Specification v1.5
 
 A self-contained specification for deploying the Meeting Performance Evaluation Framework (MPEF v1.0) as an agent on any agentic AI platform. Paste §1 as the system prompt, wire §2 as the extraction contract, implement §3 as a code tool (never model output), operate per §4, and render §5.
 
-**v1.4 alignment.** This revision matches analyzer engine v1.4: multi-presenter agenda items, a keyword-proximity off-agenda approximation for Mode 3 (disclosed, never presented as semantic analysis), the zero-count honesty gate (a detector finding nothing is Not Assessable, never a scored zero), full decision text with speaker attribution, and individually-named questions in the flags panel. Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
+**v1.5 alignment.** This revision matches analyzer engine v1.5: `substantive` is defined by content (a word-count floor over the mapped span, or a recorded decision/action) rather than turn count or clock time, so it means the same thing with or without timestamps; agenda-to-transcript anchoring uses stemmed keyword overlap scored globally across all items instead of first-substring-hit, so a topic's real discussion wins the anchor over an earlier passing mention; and an agenda item the matcher could never locate is now distinguished (`located: false`) from one that was found but genuinely not discussed, both in the schema and in the rendered report. No scoring weight or band changed; the Sample acceptance value is unchanged from v1.4 (**MPI 70.92 · Productive**). Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
 
 ---
 
@@ -118,7 +118,7 @@ The extraction stages must emit exactly this JSON. `null` means "not derivable f
     "actual_minutes": null, "actual_order": null,
     "substantive": true, "decision_expected": false,
     "decision_made": false, "closed": false, "evidence": "t=00:00",
-    "owners": null
+    "owners": null, "located": true
   }],
   "participants": [{
     "name": "", "present": true, "minutes_present": null, "talk_minutes": null,
@@ -146,7 +146,9 @@ The extraction stages must emit exactly this JSON. `null` means "not derivable f
 }
 ```
 
-Field semantics worth enforcing: `questions_answered` / `questions_deferred` are `null` (not 0) when speaker pairing is impossible; `words` and `filler_words` are `null` on condensed transcripts; `feedback_instances` is `null` (not 0) whenever the detector found no instances at all — a zero count that reflects a real, positively-identified absence is the rare exception, not the default (see the zero-count honesty gate above); `agenda_items[].owners` is every presenter named for that item (an item may list more than one), `null` if none named; `outcomes.decisions[].speaker` is whoever stated the decision, `null` if unclear; `interaction.questions` is an array of `{text, asker, status: "answered"|"deferred"|"unanswered", responder, evidence}` — one entry per question raised — or `null` when speaker pairing is impossible, mirroring `questions_answered`/`questions_deferred`. Evidence strings stay ≤ 14 chars (`t=10:31` or `L14`); caps of ≤12 agenda items, ≤12 participants, ≤6 presenters, ≤6 decisions, ≤8 actions, ≤12 questions, ≤6 notes keep constrained outputs safe.
+Field semantics worth enforcing: `questions_answered` / `questions_deferred` are `null` (not 0) when speaker pairing is impossible; `words` and `filler_words` are `null` on condensed transcripts; `feedback_instances` is `null` (not 0) whenever the detector found no instances at all — a zero count that reflects a real, positively-identified absence is the rare exception, not the default (see the zero-count honesty gate above); `agenda_items[].owners` is every presenter named for that item (an item may list more than one), `null` if none named; `agenda_items[].located` is `false` only when the topic could not be found discussed anywhere in the transcript — distinct from `substantive: false`, which means it *was* found but wasn't real discussion (see the anchoring note below); `outcomes.decisions[].speaker` is whoever stated the decision, `null` if unclear; `interaction.questions` is an array of `{text, asker, status: "answered"|"deferred"|"unanswered", responder, evidence}` — one entry per question raised — or `null` when speaker pairing is impossible, mirroring `questions_answered`/`questions_deferred`. Evidence strings stay ≤ 14 chars (`t=10:31` or `L14`); caps of ≤12 agenda items, ≤12 participants, ≤6 presenters, ≤6 decisions, ≤8 actions, ≤12 questions, ≤6 notes keep constrained outputs safe.
+
+**Anchoring an agenda item to its transcript span** (v1.5): match each item to the transcript passage that best represents it — highest shared vocabulary with the item's title, not merely the first sentence containing any one of its words — so a strong topic-opening passage wins over an earlier throwaway mention of the same words. `substantive` is a content judgment over that whole span (real, sustained discussion, or a recorded decision/action — never a passing one-line reference), independent of how many conversational turns it took or what the clock says; a topic thoroughly covered in a single long turn is substantive, and a brief but decisive go/no-go call is substantive by virtue of the decision alone. If no passage of the transcript plausibly corresponds to an item at all, set `located: false` — do not report `substantive: false` and stop there, since that reads as "the meeting skipped this" when the honest statement is "this could not be found," which may equally mean the wording differed from the agenda.
 
 ## 3. Scoring tool (implement as code)
 
@@ -206,7 +208,7 @@ Learned in production and required for reliability:
 
 1. **Header** — meeting, date, duration vs scheduled, attendance, **MPI + band**
 2. **Dimension scorecard** — six scores with weights; Not Assessable rows flagged
-3. **Agenda coverage map** — per item: presenter(s) (an item may list more than one — credit and disclose accordingly, per §1 DIVISION OF LABOR and the D3 scoring notes in §3), planned vs actual minutes, order, status
+3. **Agenda coverage map** — per item: presenter(s) (an item may list more than one — credit and disclose accordingly, per §1 DIVISION OF LABOR and the D3 scoring notes in §3), planned vs actual minutes, order, status. Status is one of closed / open / skipped / **not found** — the last is a distinct, honest label for `located: false` (a measurement failure), never collapsed into "skipped" (a finding that it genuinely wasn't discussed). Every not-found item is also named individually in Flags.
 4. **Presenter table** — one row per presenter, all D3 metrics; a co-presented item contributes to every named presenter's row
 5. **Participation table** — anonymizable; talk share, contribution mix
 6. **Decisions & actions register** — full decision text (never summarized or clipped) with the speaker who stated it; action text, owner, due date; evidence reference on every entry
@@ -227,6 +229,7 @@ Ratio metrics print their counts (e.g. `Decision yield 100% · 1/1`) so thin evi
 
 ## 7. Changelog
 
+**v1.5** — agenda anchoring now scores every item against every transcript passage by stemmed keyword overlap and assigns globally best-first, instead of "first utterance containing any keyword" — fixes an item's real discussion losing its anchor to an earlier passing mention of the same words, and two items sharing an ambiguous keyword no longer orphans whichever was listed second. `substantive` is redefined as a content judgment (a word-count floor over the mapped span, or a recorded decision/action) instead of a turn-count-and-1-minute-floor test, so it means the same thing with or without timestamps and can no longer be defeated by clock-resolution artifacts (two anchors landing in the same displayed minute) or by a topic covered thoroughly in a single long turn. Added `agenda_items[].located` to distinguish "the matcher never found this topic" from "it was found but wasn't real discussion" — both in the schema and in the report template's status (§5), plus an individual Flags entry naming every not-found item. No scoring weight, band, or MPI band threshold changed.
 **v1.4** — multi-presenter agenda items (`agenda_items[].owners`, credited and disclosed rather than silently dropped); off-agenda ratio scored by disclosed keyword-proximity approximation in Mode 3 instead of permanently Not Assessable; zero-count honesty gate (a detector finding nothing emits `null`, never a scored `0`) applied to `feedback_instances` and to agenda items a matcher couldn't locate; full decision text with `speaker` attribution, never clipped; `interaction.questions[]` so unanswered/deferred questions are named individually in flags, not just counted.
 **v1.3** — input normalization for WebVTT/SRT/Teams exports; caption-only fallback; not-a-name guard; evidence-honesty gates (condensed transcripts, timestamp resolution, attendance grounding, audio-only signals, semantic off-agenda); counts beside ratios; robust-operation section (splitting, JSON repair, retries, oversize fallback); deterministic-extractor deployment mode.
 **v1.0** — initial specification: role, pipeline, schema, scoring config, report template, single/multi-agent modes.
