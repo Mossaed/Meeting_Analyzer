@@ -43,7 +43,7 @@ console.log("=== Fixture A: built-in Sample meeting (local rule engine) ===");
   const ext = sandbox.localExtract();
   const model = sandbox.compute(ext);
 
-  check("MPI ~= 70.92 (reuse guide sec7 / README acceptance test, engine v1.4: 'MPI 70.92 . Productive')", () =>
+  check("MPI ~= 70.92 (reuse guide sec7 / README acceptance test: 'MPI 70.92 . Productive'; unchanged since v1.4)", () =>
     assertClose(model.mpi, SAMPLE_EXPECTED.mpi, SAMPLE_EXPECTED.mpiTolerance, "mpi"));
   check("band == Productive", () => assertEqual(model.band, SAMPLE_EXPECTED.band, "band"));
   check("6 of 6 dimensions assessable", () => assertEqual(model.assessable, SAMPLE_EXPECTED.assessable, "assessable"));
@@ -404,6 +404,166 @@ console.log("\n=== Advanced evidence: manual dead-time/off-agenda/interruption i
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== Agenda anchoring & substantive determination (engine v1.5) ===");
+{
+  // Scenario A/B: substantive is now a content question (word count),
+  // never a turn-count or clock question. A single long turn covering an
+  // item thoroughly used to be permanently unable to pass span.length>=2.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Security posture — Sara — 10 min";
+  els.aTrans.value = "[10:00] Sara: Security posture update — we completed the SOC2 audit with zero findings, rotated all service credentials last week, and the pen test report came back clean with only two low-severity items already fixed. Access reviews are current across every team and the new SSO rollout finishes by end of month.";
+  const ext = sandbox.localExtract();
+  check("a single long turn is substantive (word count, not turn count)", () =>
+    assertTrue(ext.agenda_items[0].substantive === true, JSON.stringify(ext.agenda_items[0])));
+}
+{
+  // Scenario C: minute-level timestamps landing two anchors in the same
+  // displayed minute used to force actual_minutes=0 -> skipped, even with
+  // real multi-turn content.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Standup blockers — Sara — 5 min\n2. Release cut — Sara — 5 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Standup blockers today, the sync engine keeps failing on flaky test networks in staging.",
+    "[10:00] Omar: Is that blocking anything on our side for the rest of this sprint specifically?",
+    "[10:00] Sara: Not yet, but we should watch it closely over the next couple of days.",
+    "[10:01] Sara: Release cut discussion now, targeting Friday for the next deployment window as planned.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const blockers = ext.agenda_items.find(i => i.title === "Standup blockers");
+  check("same-minute anchors don't force actual_minutes to 0", () => assertTrue(blockers.actual_minutes > 0, JSON.stringify(blockers)));
+  check("content spanning same-minute anchors is still substantive", () => assertTrue(blockers.substantive === true));
+}
+{
+  // Scenario E: an early throwaway mention of a LATER item ("we'll come
+  // back to the budget deck later") used to anchor that item there,
+  // truncating it to a 1-turn span and donating its real discussion (and
+  // decision) to whichever item anchored next.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Hiring plan — Sara — 10 min\n2. Budget reforecast — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Housekeeping first, the budget deck is in the shared drive, we will come back to it later today.",
+    "[10:02] Sara: Hiring plan now, we have three open reqs and two offers out this week for the team.",
+    "[10:04] Omar: How is the pipeline looking for the senior roles specifically this quarter?",
+    "[10:06] Sara: Strong, we should close both by end of month if things go well.",
+    "[10:12] Sara: OK budget reforecast. We are trending eight percent under plan for the year overall.",
+    "[10:14] Omar: What drove the improvement compared to last quarter numbers?",
+    "[10:16] Sara: Mostly lower cloud spend after the migration finished up last month.",
+    "[10:18] Sara: Decision — we reallocate the surplus to the data platform team starting next sprint.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const budget = ext.agenda_items.find(i => i.title === "Budget reforecast");
+  check("item anchors on its real discussion, not an earlier passing mention", () =>
+    assertEqual(budget.evidence, "t=10:12"));
+  check("the real discussion's decision is attributed to the right item", () =>
+    assertTrue(budget.closed === true, JSON.stringify(budget)));
+}
+{
+  // Scenario F: two items sharing one ambiguous keyword ("budget") used
+  // to orphan whichever item didn't get there first. A second,
+  // discriminating keyword on each item should now resolve both correctly.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min\n2. Budget signoff — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Lets do the budget review now, spend is tracking under plan across every team this quarter.",
+    "[10:02] Omar: Any risk areas we should flag before we move on to the next topic today?",
+    "[10:04] Sara: Not really, we are in good shape heading into next quarter.",
+    "[10:10] Sara: Moving to signoff, I need everyone to confirm approval on the numbers by Friday please.",
+    "[10:12] Omar: Approved from my side, looks solid to me overall.",
+    "[10:14] Sara: Great, decision — we lock the numbers and move forward with the plan as is.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("both items with a shared keyword resolve to their own discussion", () => {
+    const review = ext.agenda_items.find(i => i.title === "Budget review");
+    const signoff = ext.agenda_items.find(i => i.title === "Budget signoff");
+    assertEqual(review.evidence, "t=10:00");
+    assertEqual(signoff.evidence, "t=10:10");
+    assertTrue(review.located && signoff.located, "both should be located");
+  });
+}
+{
+  // Scenario G: with no timestamps, the old actual_minutes>=1 gate became
+  // an opaque ~140-word requirement. substantive is now a direct word
+  // count, identical with or without timestamps.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Standup blockers — Sara — 10 min\n2. Release cut — Sara — 10 min";
+  els.aTrans.value = [
+    "Sara: Standup blockers today, the sync engine keeps failing on flaky test networks in staging.",
+    "Omar: Any workaround for now while the team investigates the root cause properly?",
+    "Sara: Not yet, we are still digging into the logs from last nights failures.",
+    "Sara: Release cut discussion now, we are targeting Friday for the next deployment window.",
+    "Omar: Sounds reasonable, I will help with the final testing pass this afternoon.",
+    "Sara: Decision — we cut Friday, and slip to Monday only if something major comes up.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("no-timestamp transcript: both items are located and substantive", () =>
+    assertTrue(ext.agenda_items.every(i => i.located && i.substantive), JSON.stringify(ext.agenda_items)));
+}
+{
+  // A closed item (recorded a decision or action) is substantive
+  // regardless of word count -- a crisp go/no-go call shouldn't read as
+  // "skipped" just because it was brief. Reproduces the exact sample-
+  // meeting case ("Launch go/no-go", ~29 words, closed=true).
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Launch go/no-go — Lina — 10 min";
+  els.aTrans.value = "[10:31] Lina: Launch go/no-go for the pricing page. Legal signed off, experiments show +6% conversion, no churn signal.\n[10:38] Sara: Decision: we go live Monday. Lina owns the rollout checklist, due Friday.";
+  const ext = sandbox.localExtract();
+  check("a brief but closed item is substantive despite being under the word-count floor", () =>
+    assertTrue(ext.agenda_items[0].closed === true && ext.agenda_items[0].substantive === true, JSON.stringify(ext.agenda_items[0])));
+}
+{
+  // "not found" (paraphrase, your reported case): a topic discussed with
+  // no lexical overlap to the agenda title must be distinguished from a
+  // genuine skip -- both in the item record and in the rendered status.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min\n2. Q3 Revenue Forecast — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Budget review time, spend is tracking well under plan across every team this quarter.",
+    "[10:05] Omar: How much money do we expect to bring in for the rest of the year overall?",
+    "[10:07] Sara: We are projecting strong growth, roughly two point one million for the period ahead.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const forecast = ext.agenda_items.find(i => i.title === "Q3 Revenue Forecast");
+  check("a paraphrased topic is marked located:false, not skipped", () =>
+    assertTrue(forecast.located === false && forecast.substantive === false, JSON.stringify(forecast)));
+  const model = sandbox.compute(ext);
+  check("a flag names the not-found item specifically", () => {
+    const f = model.flags.find(x => /not found in the transcript/.test(x.text));
+    if (!f) throw new Error("expected a not-found flag");
+    assertTrue(f.text.includes("Q3 Revenue Forecast"), f.text);
+  });
+  check("Coverage rate still counts the not-found item against coverage", () =>
+    assertEqual(model.metrics.find(m => m.label === "Coverage rate").disp, "50.0% · 1/2"));
+  sandbox.render(model);
+  check("rendered status shows \"not found\", distinct from \"skipped\"", () =>
+    assertTrue(els.report.innerHTML.includes("not found"), "expected a 'not found' status in the rendered coverage map"));
+}
+{
+  // Route B compatibility: a payload that predates the `located` field
+  // must default to true (an AI extraction only omits an item it
+  // couldn't find at all, so silence should not read as "not found").
+  const { sandbox } = boot(APP_PATH);
+  const model = sandbox.compute({
+    meeting: { scheduled_minutes: 30, actual_minutes: 30 },
+    agenda_items: [{ title: "Legacy item", planned_minutes: 10, planned_order: 1, actual_minutes: 8,
+      actual_order: 1, substantive: true, decision_expected: false, decision_made: false, closed: true, evidence: "t=00:00" }],
+    participants: [], presenters: [], interaction: {}, outcomes: {}, quality: { notes: [] },
+  });
+  check("agenda_items without a `located` field default to located (Route B back-compat)", () =>
+    assertTrue(model.items[0].located !== false, JSON.stringify(model.items[0])));
+}
+{
+  // Canary: a genuinely skipped item ("Out of time — skipping AOB") must
+  // still read as skipped, not swept into "substantive" by the relaxed
+  // word-count gate.
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const aob = ext.agenda_items.find(i => i.title === "AOB");
+  check("AOB canary: genuinely skipped item stays non-substantive", () =>
+    assertTrue(aob.located === true && aob.substantive === false, JSON.stringify(aob)));
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Multi-presenter agenda items (engine v1.4) ===");
 {
   const { sandbox } = boot(APP_PATH);
@@ -467,7 +627,7 @@ console.log("\n=== Unmatched agenda items: counted as not-covered, not scored 0 
   // as NOT COVERED (a real finding) but drop out of time adherence.
   const { sandbox, els } = boot(APP_PATH);
   els.aAgenda.value = "1. Budget review — Sara — 10 min\n2. Nonexistent topic zzz — Sara — 10 min";
-  els.aTrans.value = "[10:00] Sara: Let's review the budget numbers for this quarter in detail today.\n[10:05] Sara: Spend is tracking under plan overall for the year.";
+  els.aTrans.value = "[10:00] Sara: Let's review the budget numbers for this quarter in detail today, spend is tracking well under plan across every team so far this year.\n[10:05] Omar: What is driving the improvement compared to where we expected to land at this point?\n[10:07] Sara: Mostly lower cloud costs after the migration finished up last month, plus we deferred a couple of hires into next quarter.";
   const ext = sandbox.localExtract();
   const missed = ext.agenda_items.find(i => i.title === "Nonexistent topic zzz");
   check("unmatched item has actual_minutes = null, not 0", () => assertNull(missed.actual_minutes));
@@ -608,13 +768,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v1.4'", () =>
-    assertTrue(/engine v1\.4/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v1.5'", () =>
+    assertTrue(/engine v1\.5/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "1.4"));
+    assertEqual(sandbox.ENGINE_VERSION, "1.5"));
 }
 
 // ---------------------------------------------------------------------
