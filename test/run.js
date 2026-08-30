@@ -698,7 +698,7 @@ console.log("\n=== Decisions: full text + speaker attribution (engine v1.4) ==="
   const model = sandbox.compute(ext);
   sandbox.render(model);
   check("rendered decision shows the speaker name inline", () =>
-    assertTrue(/<b>Sara:<\/b>/.test(els.report.innerHTML) || /<b>Amir:<\/b>/.test(els.report.innerHTML), "expected a bold speaker prefix in the Decisions card"));
+    assertTrue(/<b>Sara<\/b>/.test(els.report.innerHTML) || /<b>Amir<\/b>/.test(els.report.innerHTML), "expected a bold speaker name in the Decisions card"));
 }
 
 // ---------------------------------------------------------------------
@@ -760,6 +760,188 @@ console.log("\n=== Anonymize toggle (agent spec sec1/sec5: 'Participation table 
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== Participation: silent attendees dropped, disclosed (engine v1.6) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  check("Sample's two silent attendees (Mei, Tomás) are not in the Participation table", () =>
+    assertTrue(!/Participation[\s\S]{0,50}<\/h2>[\s\S]{0,3000}>Mei</.test(html) && !/Participation[\s\S]{0,50}<\/h2>[\s\S]{0,3000}>Tomás</.test(html),
+      "expected Mei/Tomás rows removed from Participation"));
+  check("a spoken attendee (Sara) still appears in the Participation table", () =>
+    assertTrue(html.includes(">Sara<")));
+  check("dropped-attendee count is disclosed under the table", () =>
+    assertTrue(/2 attendees present with no recorded speech/.test(html), "expected the count disclosure line"));
+  check("D4 scoring still reads the full participant list (silent attendees still count)", () =>
+    assertEqual(model.dims.D4, SAMPLE_EXPECTED.dims.D4, "D4 unaffected by the display-only filter"));
+}
+{
+  // A null talk share (unmeasurable, not measured-zero) must never be
+  // dropped -- only a positively-measured 0 is display-noise.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Standup — Sara — 10 min";
+  els.aTrans.value = [
+    "Sara: Quick standup, we shipped the release last night without issues.",
+    "Omar: Nice, I will follow up on the metrics dashboard once it settles down this week.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  check("with no timestamps, talk share is null (unmeasurable) and rows are not dropped for it", () =>
+    assertTrue(html.includes(">Sara<") && html.includes(">Omar<"), "both speakers should still be listed"));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Decisions: verified, enriched with time/agenda/context/basis (engine v1.6) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Should we approve this budget increase for the platform team?",
+    "[10:01] Omar: We have not agreed on the budget allocation yet, still reviewing options.",
+    "[10:02] Sara: If we approved the extra headcount, we would need new desks too probably.",
+    "[10:03] Omar: We should approve the vendor contract next quarter once legal signs off.",
+    "[10:04] Sara: Let's decide on the vendor next week when Amir is back from leave.",
+    "[10:05] Omar: Agreed.",
+    "[10:06] Sara: Agreed — we approve the Q3 budget increase of 50k for the platform team, effective immediately.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const texts = ext.outcomes.decisions.map(d => d.text);
+  check("a question containing the trigger phrase is rejected", () =>
+    assertTrue(!texts.some(t => /Should we approve/.test(t)), JSON.stringify(texts)));
+  check("a negated trigger ('have not agreed') is rejected", () =>
+    assertTrue(!texts.some(t => /have not agreed/.test(t)), JSON.stringify(texts)));
+  check("a hypothetical/conditional trigger ('if we approved') is rejected", () =>
+    assertTrue(!texts.some(t => /If we approved/.test(t)), JSON.stringify(texts)));
+  check("an unadopted proposal ('we should approve') is rejected", () =>
+    assertTrue(!texts.some(t => /We should approve/.test(t)), JSON.stringify(texts)));
+  check("a deferral to a later date ('decide...next week') is rejected", () =>
+    assertTrue(!texts.some(t => /Let's decide on the vendor/.test(t)), JSON.stringify(texts)));
+  check("bare assent with no stated outcome ('Agreed.') is rejected", () =>
+    assertTrue(!texts.some(t => t.trim() === "Agreed."), JSON.stringify(texts)));
+  check("the one real decision beside all six disqualified candidates survives", () =>
+    assertTrue(texts.some(t => /we approve the Q3 budget increase of 50k/.test(t)), JSON.stringify(texts)));
+}
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  check("every Sample decision carries a time", () =>
+    assertTrue(ext.outcomes.decisions.every(d => typeof d.time === "string"), JSON.stringify(ext.outcomes.decisions.map(d => d.time))));
+  check("every Sample decision is attributed to its agenda item", () =>
+    assertTrue(ext.outcomes.decisions.every(d => typeof d.agenda_item === "string"), JSON.stringify(ext.outcomes.decisions.map(d => d.agenda_item))));
+  check("every Sample decision carries multi-line context including the decision itself", () =>
+    assertTrue(ext.outcomes.decisions.every(d => Array.isArray(d.context) && d.context.length >= 1), JSON.stringify(ext.outcomes.decisions.map(d => d.context))));
+  check("every Sample decision states a basis (the qualifying trigger phrase)", () =>
+    assertTrue(ext.outcomes.decisions.every(d => typeof d.basis === "string" && d.basis.length > 0), JSON.stringify(ext.outcomes.decisions.map(d => d.basis))));
+  check("a decision corroborated by both an action item and the minutes says so", () => {
+    els.aMom.value = "Decision: go live Monday. Action: Lina owns the rollout checklist, due Friday.";
+    const ext2 = sandbox.localExtract();
+    const launch = ext2.outcomes.decisions.find(d => /go live Monday/.test(d.text));
+    assertTrue(!!launch && /corroborated by/.test(launch.basis), JSON.stringify(launch));
+  });
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  check("Decisions card is rendered as its own full-width section, not split two-column with Action items", () =>
+    assertTrue(!/<div class="twocol">[\s\S]{0,200}Decisions/.test(html), "Decisions should no longer share a .twocol row"));
+  check("rendered Decisions card shows the agenda-item tag", () =>
+    assertTrue(/class="agtag">Roadmap update</.test(html) || /class="agtag">Budget check</.test(html) || /class="agtag">Launch go\/no-go</.test(html), html.slice(html.indexOf("Decisions"), html.indexOf("Decisions") + 100)));
+  check("MPI is unchanged from v1.5 (70.92) -- all real decisions survived qualification", () =>
+    assertClose(model.mpi, SAMPLE_EXPECTED.mpi, SAMPLE_EXPECTED.mpiTolerance, "mpi"));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Attendee questions: agenda attribution + topic match (engine v1.6) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const omarQs = ext.interaction.questions.filter(q => q.asker === "Omar");
+  check("questions asked during their own agenda item's discussion read 'on topic'", () =>
+    assertTrue(omarQs.length === 2 && omarQs.every(q => q.topic_match === "on topic"), JSON.stringify(omarQs)));
+  const karl = ext.interaction.questions.find(q => q.asker === "Karl");
+  check("a question naming a different item than the one being discussed is flagged 'other item (...)'", () =>
+    assertTrue(!!karl && karl.topic_match === "other item (Launch go/no-go)" && karl.agenda_item === "Hiring update", JSON.stringify(karl)));
+  check("every question is attributed to the agenda item being discussed when it was asked", () =>
+    assertTrue(ext.interaction.questions.every(q => typeof q.agenda_item === "string"), JSON.stringify(ext.interaction.questions.map(q => q.agenda_item))));
+  check("an answered question's context includes both the question and the answer", () => {
+    const q = ext.interaction.questions.find(q => q.status === "answered");
+    assertTrue(!!q && q.context.length === 2, JSON.stringify(q));
+  });
+
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  check("Attendee questions card is rendered, grouped by asker", () =>
+    assertTrue(html.includes("Attendee questions") && html.includes(">Omar<") && html.includes(">Karl<")));
+  check("Karl's row shows the 'other item' topic-match label", () =>
+    assertTrue(/other item \(Launch go\/no-go\)/.test(html)));
+}
+{
+  // A question with no shared vocabulary anywhere must be labelled
+  // honestly ("no keyword match"), never asserted as "off topic".
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Budget review — we are trending under plan this quarter across all departments.",
+    "[10:02] Omar: Anyone catch the game last night, was it close?",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const q = ext.interaction.questions[0];
+  check("a question with no shared vocabulary anywhere reads 'no keyword match', not 'off topic'", () =>
+    assertTrue(!!q && q.topic_match === "no keyword match", JSON.stringify(q)));
+}
+{
+  // pseudo mode: no real speaker labels, so questions can't be attributed.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Standup — 10 min";
+  els.aTrans.value = [
+    "[10:00] We shipped the release last night without any issues on the platform.",
+    "[10:01] Did the rollout finish cleanly across every region we deployed to?",
+    "[10:02] Yes, no issues reported so far from any of the regional teams.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  check("Attendee questions card states Not assessable when speaker labels are unavailable", () =>
+    assertTrue(/Attendee questions[\s\S]{0,300}Not assessable — no speaker labels/.test(html), html.slice(html.indexOf("Attendee questions"), html.indexOf("Attendee questions") + 300)));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Route B (pasted JSON) back-compat with v1.6 fields (engine v1.6) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  const legacy = {
+    meeting: { title: "t", date: null, scheduled_minutes: 30, actual_minutes: 30, start_delay_minutes: 0,
+      dead_time_minutes: null, off_agenda_minutes: null, total_talk_minutes: 20, avg_decision_latency_minutes: null, invitees: 5 },
+    agenda_items: [],
+    participants: [{ name: "Sara", present: true, minutes_present: 30, talk_minutes: 10, questions: 0, answers: 0, proposals: 0, risks: 0, info: 0 }],
+    presenters: [],
+    interaction: { questions_raised: 1, questions_answered: 1, questions_deferred: 0,
+      questions: [{ text: "q?", asker: "Sara", status: "answered", responder: "Omar", evidence: "L1" }],
+      feedback_instances: null, chat_substantive_messages: null, interruptions_per_10min: null, turns_per_10min: null },
+    outcomes: { actions_total: 0, actions_with_owner_and_due: 0, transcript_items: 1, mom_items: null, matched_items: null,
+      decisions: [{ text: "We agreed to proceed.", speaker: "Sara", evidence: "L2" }], actions: [] },
+    quality: { has_timestamps: false, has_speaker_labels: true, notes: [] },
+  };
+  let model, threw = false;
+  try {
+    model = sandbox.compute(legacy);
+    sandbox.render(model);
+  } catch (e) { threw = e; }
+  check("legacy Route B JSON without agenda_item/context/basis/topic_match still scores without throwing", () =>
+    assertTrue(!threw, threw && threw.stack));
+  check("legacy Route B JSON still produces a valid MPI", () =>
+    assertTrue(model && isFinite(model.mpi)));
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Zero-network guarantee (offline edition) ===");
 {
   const fs = require("fs");
@@ -768,13 +950,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v1.5'", () =>
-    assertTrue(/engine v1\.5/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v1.6'", () =>
+    assertTrue(/engine v1\.6/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "1.5"));
+    assertEqual(sandbox.ENGINE_VERSION, "1.6"));
 }
 
 // ---------------------------------------------------------------------
