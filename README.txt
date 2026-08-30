@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v1.5" - the filename never changes
+3. The dark header should read "engine v1.6" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -56,9 +56,19 @@ GOOD TO KNOW
   If an item genuinely can't be matched (very different wording, or truly
   not discussed) it's labeled "not found" in the coverage map - distinct
   from "skipped" - and named in the flags panel so you can check it.
-- Decisions show the full statement and who said it, not a clipped
-  fragment. Unanswered and deferred questions are listed by name in the
-  flags panel, not just counted.
+- Decisions are checked, not just pattern-matched - a question, a hedge
+  ("we should approve"), or bare "Agreed." with nothing decided is excluded.
+  Each surviving decision shows the full statement, who said it, when, which
+  agenda item it belongs to, the surrounding exchange, and what qualified it
+  as a real decision.
+- Every question is listed under "Attendee questions", grouped by who asked
+  it, tagged with the agenda item under discussion and whether it matched
+  that item's topic, another item's, or neither - so a question asked in
+  the wrong slot doesn't get lost.
+- The Participation table only lists attendees who actually spoke; a silent
+  attendee (present but never heard from) is dropped from the table with a
+  disclosed count, not shown at a flat 0% - they still count in attendance
+  rate, active contributors and speaking balance.
 - Nothing is saved between sessions and nothing ever leaves your device.
 - Use "Print / save as PDF", or "Download report (.html)" for a
   standalone copy, at the bottom of a report to keep or share results.

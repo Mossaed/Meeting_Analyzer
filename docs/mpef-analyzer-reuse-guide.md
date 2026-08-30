@@ -1,6 +1,6 @@
 # MPEF Analyzer — Reuse & Redeployment Guide
 
-**Applies to:** engine v1.5 · offline edition (`mpef-analyzer-offline.html`) and connected edition (`mpef-analyzer.html`)
+**Applies to:** engine v1.6 · offline edition (`mpef-analyzer-offline.html`) and connected edition (`mpef-analyzer.html`)
 **Audience:** anyone who wants to run, distribute, customize, or redeploy the app in a new environment.
 
 ---
@@ -35,7 +35,7 @@ Scoring code and configuration are identical in both, so the same evidence produ
 
 The local engine also writes its extraction JSON into the editable step-2 box, so users can inspect, correct any count, and re-score instantly — regardless of route.
 
-## 4. Honest-measurement rules built into v1.5
+## 4. Honest-measurement rules built into v1.6
 
 These exist so scores are never artifacts of note-taking; they are the answer to "why is this metric n/a?":
 
@@ -48,6 +48,7 @@ These exist so scores are never artifacts of note-taking; they are the answer to
 7. **Found vs. discussed (v1.5).** An agenda item's status distinguishes two different failures the old single "skipped" label conflated: an item the matcher couldn't locate anywhere in the transcript (**not found** — likely different wording than the agenda, flagged by name so you can check and correct it) from one that *was* located but wasn't real discussion (**skipped**). Coverage rate counts both as not-covered — a genuinely skipped item is equally unlocatable, so excluding either would gut the metric — but only "skipped" is a claim about what happened in the meeting.
 8. **Sample-size transparency.** Ratio metrics display their counts (e.g. `100% · 1/1`); tiny denominators can legitimately score 0 or 100 and are visibly thin.
 9. **Not-a-name guard.** Lines like `Decision: …` or `Action: …` are never mistaken for speakers.
+10. **Decisions are verified, not just pattern-matched (v1.6).** A candidate decision has to survive a set of explicit disqualifiers — it's a question, a negation ("we haven't agreed"), a hypothetical ("if we approved…"), an unadopted proposal ("we should approve"), a deferral to a later date, or bare assent with no stated outcome ("Agreed.") — before it's counted. This is still keyword/pattern proximity, not semantic understanding, so it's a disclosed approximation like the rest of the local engine, not a claim of perfect precision.
 
 The flags panel states which of these rules fired and why, prioritizing meeting-specific findings over generic ones when more than the agent spec's 6-note budget fire in one run (§2 of the agent spec: "notes <=6").
 
@@ -102,7 +103,7 @@ Other tuning points, each clearly labeled in the source: `RX` (regex lexicons fo
 
 ## 7. Verifying a deployment
 
-Open the file and confirm the dark header reads **engine v1.5** — the filename never changes between versions, so this stamp is the only reliable build check. Then press **Sample → Extract & score locally**: on an unmodified v1.5 build this deterministically renders **MPI 70.92 · Productive** (unchanged from v1.4), six scored dimensions, and a flags panel that includes the condensed-transcript and off-agenda-keyword-matching disclosures. Full acceptance steps live in the companion checklist.
+Open the file and confirm the dark header reads **engine v1.6** — the filename never changes between versions, so this stamp is the only reliable build check. Then press **Sample → Extract & score locally**: on an unmodified v1.6 build this deterministically renders **MPI 70.92 · Productive** (unchanged from v1.4), six scored dimensions, a Participation table of 6 (not 8) attendees with a disclosure line for the 2 silent ones, a Decisions card with 3 full attributed entries, an Attendee questions section, and a flags panel that includes the condensed-transcript and off-agenda-keyword-matching disclosures. Full acceptance steps live in the companion checklist.
 
 For the offline edition you can additionally prove network silence: search the file for `fetch(` — the only permitted match is none at all. (A bare search for `http` is not the right test: the file legitimately contains a URL-detection regex, `/^https?/i`, used to keep a pasted link from being mistaken for a speaker name.) Or open it with the browser's network tab recording and confirm zero requests beyond the file itself.
 
@@ -110,8 +111,9 @@ For the offline edition you can additionally prove network silence: search the f
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Header doesn't say engine v1.5 | Stale copy (identical filename) | Replace the file; re-share the zip |
+| Header doesn't say engine v1.6 | Stale copy (identical filename) | Replace the file; re-share the zip |
 | Agenda item shows "not found" | Wording differs from the agenda (paraphrase), or genuinely wasn't discussed | Check the flags panel entry naming it; if it *was* discussed, correct `located`/`substantive`/`evidence` in the editable step-2 JSON and re-score, or rephrase the agenda line closer to the transcript's wording |
+| A real decision is missing from the Decisions card | The disqualifier set (§4 rule 10) rejected the line — often a hedge like "we should" or "let's decide later" sitting next to real decision language | Add or correct the decision directly in the editable step-2 JSON (`outcomes.decisions[]`) and re-score |
 | "Couldn't parse any utterances" | Unrecognized transcript layout | Use `[10:04] Name: text` lines, or paste the raw platform export (VTT/SRT/Teams are auto-detected) |
 | Many metrics show n/a | Honest-measurement rules (§4) fired | Read the flags panel; supply richer artifacts (verbatim transcript, second-level timestamps, attendance log) or use Route B |
 | Scores look extreme (0/100) with counts like 1/1 | Genuine tiny-sample ratios | Judge by the printed counts; more countable events → finer scores |
@@ -122,6 +124,7 @@ For the offline edition you can additionally prove network silence: search the f
 
 ## 9. Version history
 
+**v1.6** — Participation table drops attendees with a positively-measured 0% talk share (a null/unmeasurable share is never dropped), disclosing the count instead of hiding it; decisions are verified against a set of explicit disqualifiers (question, negation, hypothetical, unadopted proposal, deferral, bare assent) before being counted, then enriched with time, agenda-item attribution, surrounding context, and the basis that qualified them, rendered as their own full-width card; new **Attendee questions** section lists every question grouped by asker with agenda-item attribution and a three-state topic match (on topic / other item (X) / no keyword match). No weight, band, or formula changed; the Sample acceptance value is unchanged from v1.5 at **MPI 70.92**.
 **v1.5** — agenda-to-transcript anchoring rewritten as stemmed, scored, best-overlap assignment instead of first-substring-hit, fixing several ways a genuinely-discussed item could render **skipped**; `substantive` redefined by span word count instead of turn count or clock minutes; items the matcher truly can't locate now render **not found**, a distinct status from **skipped**, with a named flag; last-item zero-minute clock artifact guarded with a word-count fallback. No weight, band, or formula changed; the Sample acceptance value is unchanged from v1.4 at **MPI 70.92**.
 **v1.4** — multi-presenter agenda items, credited and disclosed rather than silently dropped; off-agenda ratio scored locally by disclosed keyword-proximity approximation instead of permanently n/a; zero-count honesty gate (a detector finding nothing is Not Assessable, never a scored 0) applied to feedback instances and to agenda items a matcher couldn't locate; full untruncated decision text with speaker attribution; unanswered/deferred questions named individually in the flags panel. Moves the Sample acceptance value from MPI 75.13 to **MPI 70.92**.
 **v1.3** — WebVTT/SRT/Teams normalization; caption-only (no-speaker) fallback; not-a-name guard; Save-as-.txt for huge prompts; 3-token speaker names.
@@ -173,6 +176,17 @@ A report that a discussed item showed **skipped** led to an audit that found sev
 - **"Not found" is now a distinct, honest status.** An item the matcher genuinely cannot locate anywhere in the transcript still counts against Coverage rate (excluding it would let a truly-skipped item hide the same way), but no longer renders as **skipped** — it renders as **not found**, in its own color, with a flag naming every such item so a paraphrase mismatch (different wording than the agenda) is visible and correctable in the editable step-2 JSON, rather than silently misreported as a factual finding about the meeting.
 - **Zero-minute last-item guard.** The final agenda item's actual-minutes used to be computed against the meeting's end timestamp, which can legitimately compute to 0 under minute-granularity stamps even though real content was spoken; it now falls back to the same word-count time estimate used on the no-timestamp path when that happens.
 - The regression suite grew to 141 checks (`test/run.js`), including one test per failure mode identified in the audit and a canary confirming a genuinely-skipped item (the Sample's "AOB", explicitly deferred in the transcript) still reads as skipped after the rewrite.
+
+## 15. Engine v1.6 changes (silent attendees, verified decisions, attendee questions)
+
+Three requests against v1.6's report read-out, all display-side except one that also tightens what counts as a decision:
+
+- **Silent attendees no longer clutter Participation.** An attendee present in the attendance log who never spoke used to sit in the table at a flat 0.0% talk share, indistinguishable from real signal. Rows are now dropped only for a *positively-measured* 0% — a `null` share (talk time genuinely unmeasurable) is never touched, same honesty gate as everywhere else in the app — and a line under the table discloses the count: *"N attendees present with no recorded speech are not listed — they still count in attendance rate, active contributors and speaking balance."* D4 scoring is unaffected; this is a display-only filter over the same full participant list.
+- **Decisions are verified, not just pattern-matched.** The trigger regex (`agreed`, `approved`, `we go`, `decided`, `ship it`, …) used to count anything it matched. It now has to survive explicit disqualifiers first — see §4 rule 10 above — before being counted at all, closing a real gap: a plain "Agreed." with no stated outcome, or "we should approve this," used to score exactly like a real decision taken. This does reach scoring (MoM fidelity in D6, and decision-driven `closed`/coverage in D1 and D6), though the Sample's own three decisions all survive unchanged, so its acceptance MPI is unmoved. Surviving decisions are then enriched with **time**, the **agenda item** they were made under, 1-3 lines of surrounding **context**, and a **basis** stating what qualified them (the trigger phrase, plus any action item or minutes line that corroborates it) — rendered as their own full-width card instead of a two-column split with Action items, since the record now needs the room. Cap raised from 6 to 20 decisions.
+- **New "Attendee questions" section.** Every question is now listed grouped by who asked it, each with its resolution status and responder, the agenda item under discussion when it was asked, the question-and-answer in context, and a three-state **topic match**: *on topic* (its content overlaps the discussion it was asked in), *other item (X)* (it doesn't match its own discussion but clearly names a different agenda item — catches a question asked in the wrong slot), or *no keyword match* (neither — deliberately not "off topic," since keyword proximity can't support that stronger claim, same posture as v1.5's "not found"). Cap raised from 12 to 24 questions; `questions_raised` itself was never capped, so no metric moves.
+- **Anonymize participants now covers both attendee-keyed sections.** The toggle previously only renamed the Participation table. Attendee questions' asker and responder names are now anonymized the same way (question text itself is never altered); Decisions and Action items remain deliberately un-anonymized, unchanged from v1.4 — that scoping is unaffected.
+- Route B's schema gained the same fields (`decisions[].time/agenda_item/context/basis`, `questions[].agenda_item/context/topic_match`) with a matching rule on what does and doesn't qualify as a decision; a pasted JSON missing them still scores and renders correctly (all new fields are read defensively).
+- The regression suite grew to 171 checks (`test/run.js`), covering the disqualifier set, the enrichment fields, all three topic-match states, the silent-attendee filter (including the null-share non-regression), and Route B back-compat.
 
 ---
 *Provided for internal reuse and redistribution by your organization. Keep this guide and the checklist alongside the app file so every recipient can self-serve.*

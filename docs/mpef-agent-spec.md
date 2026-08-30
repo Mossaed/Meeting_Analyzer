@@ -1,8 +1,8 @@
-# MPEF Analyzer Agent — Deployment Specification v1.5
+# MPEF Analyzer Agent — Deployment Specification v1.6
 
 A self-contained specification for deploying the Meeting Performance Evaluation Framework (MPEF v1.0) as an agent on any agentic AI platform. Paste §1 as the system prompt, wire §2 as the extraction contract, implement §3 as a code tool (never model output), operate per §4, and render §5.
 
-**v1.5 alignment.** This revision matches analyzer engine v1.5: `substantive` is defined by content (a word-count floor over the mapped span, or a recorded decision/action) rather than turn count or clock time, so it means the same thing with or without timestamps; agenda-to-transcript anchoring uses stemmed keyword overlap scored globally across all items instead of first-substring-hit, so a topic's real discussion wins the anchor over an earlier passing mention; and an agenda item the matcher could never locate is now distinguished (`located: false`) from one that was found but genuinely not discussed, both in the schema and in the rendered report. No scoring weight or band changed; the Sample acceptance value is unchanged from v1.4 (**MPI 70.92 · Productive**). Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
+**v1.6 alignment.** This revision matches analyzer engine v1.6: a candidate decision must survive an explicit set of disqualifiers (question, negation, hypothetical, unadopted proposal, deferral, bare assent) before being counted, then carries `time`, `agenda_item`, `context`, and `basis` for full auditability; every question likewise carries `agenda_item`, `context`, and a three-state `topic_match` (on topic / other item / no keyword match); and the Participation table renders only attendees with a positively-measured nonzero talk share, disclosing the count of silent attendees rather than listing them at a flat 0%. No scoring weight or band changed; the Sample acceptance value is unchanged from v1.5 (**MPI 70.92 · Productive**). Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
 
 ---
 
@@ -72,6 +72,13 @@ EVIDENCE-HONESTY GATES (apply before any metric is scored)
 - Sample size: every ratio you extract must keep its raw counts so the report
   can print them (e.g. "100% · 1/1"); tiny denominators legitimately score 0
   or 100 and must be visibly thin.
+- Decision verification: never count an utterance as a decision merely
+  because it contains decision-adjacent language. Exclude a question
+  ("should we approve this?"), a negation ("we haven't agreed"), a
+  hypothetical ("if we approved..."), an unadopted proposal ("we should
+  approve", "I suggest we ship it"), a deferral ("let's decide next week"),
+  or bare assent with no stated outcome ("Agreed." alone). Only an utterance
+  that states an outcome actually taken counts.
 
 PIPELINE (execute in order)
 S1 Ingest    — normalize formats (above); parse every artifact into the
@@ -94,7 +101,10 @@ S7 Report    — render the fixed report template, citing a timestamp or line
 OUTPUT RULES
 - Fixed section order (see report template). No adjectives without numbers.
 - Ratio metrics are reported with their counts beside the percentage.
-- Anonymize participants as P1, P2… when the "anonymize" option is set.
+- Anonymize participants as P1, P2… when the "anonymize" option is set —
+  covers the Participation table and the Attendee questions asker/responder
+  names (same map); decision speakers and action owners are never
+  anonymized.
 - State every proxy, gate or degraded-mode measurement in the data-quality
   note (up to 6 concise notes), e.g. "condensed transcript (~12% of floor
   time transcribed) — pace, filler, monologue & turn density not assessable".
@@ -139,16 +149,19 @@ The extraction stages must emit exactly this JSON. `null` means "not derivable f
   "outcomes": {
     "actions_total": 0, "actions_with_owner_and_due": 0,
     "transcript_items": 0, "mom_items": null, "matched_items": null,
-    "decisions": [{ "text": "", "speaker": null, "evidence": "t=00:00" }],
+    "decisions": [{ "text": "", "speaker": null, "time": null, "evidence": "t=00:00",
+                    "agenda_item": null, "context": null, "basis": null }],
     "actions":   [{ "text": "", "owner": null, "due": null, "evidence": "t=00:00" }]
   },
   "quality": { "has_timestamps": false, "has_speaker_labels": false, "notes": [] }
 }
 ```
 
-Field semantics worth enforcing: `questions_answered` / `questions_deferred` are `null` (not 0) when speaker pairing is impossible; `words` and `filler_words` are `null` on condensed transcripts; `feedback_instances` is `null` (not 0) whenever the detector found no instances at all — a zero count that reflects a real, positively-identified absence is the rare exception, not the default (see the zero-count honesty gate above); `agenda_items[].owners` is every presenter named for that item (an item may list more than one), `null` if none named; `agenda_items[].located` is `false` only when the topic could not be found discussed anywhere in the transcript — distinct from `substantive: false`, which means it *was* found but wasn't real discussion (see the anchoring note below); `outcomes.decisions[].speaker` is whoever stated the decision, `null` if unclear; `interaction.questions` is an array of `{text, asker, status: "answered"|"deferred"|"unanswered", responder, evidence}` — one entry per question raised — or `null` when speaker pairing is impossible, mirroring `questions_answered`/`questions_deferred`. Evidence strings stay ≤ 14 chars (`t=10:31` or `L14`); caps of ≤12 agenda items, ≤12 participants, ≤6 presenters, ≤6 decisions, ≤8 actions, ≤12 questions, ≤6 notes keep constrained outputs safe.
+Field semantics worth enforcing: `questions_answered` / `questions_deferred` are `null` (not 0) when speaker pairing is impossible; `words` and `filler_words` are `null` on condensed transcripts; `feedback_instances` is `null` (not 0) whenever the detector found no instances at all — a zero count that reflects a real, positively-identified absence is the rare exception, not the default (see the zero-count honesty gate above); `agenda_items[].owners` is every presenter named for that item (an item may list more than one), `null` if none named; `agenda_items[].located` is `false` only when the topic could not be found discussed anywhere in the transcript — distinct from `substantive: false`, which means it *was* found but wasn't real discussion (see the anchoring note below); `outcomes.decisions[].speaker` is whoever stated the decision, `null` if unclear, and must pass decision verification (see the gate above) before it's included at all; `outcomes.decisions[].time` is a clock time or timestamp label if available, else `null`; `outcomes.decisions[].agenda_item` is the title of the agenda item it was made under, `null` if it falls outside every item's discussion; `outcomes.decisions[].context` is the 1-3 preceding lines plus the decision line, each `"Speaker: text"`, so the decision reads in its surrounding exchange; `outcomes.decisions[].basis` is one sentence on what qualified it as a real decision (the signal phrase, and anything corroborating it — a related action item, a matching minutes line), `null` if none can be articulated; `interaction.questions` is an array of `{text, asker, status: "answered"|"deferred"|"unanswered", responder, evidence, agenda_item, context, topic_match}` — one entry per question raised — or `null` when speaker pairing is impossible, mirroring `questions_answered`/`questions_deferred`. `questions[].agenda_item` is the item being discussed when the question was asked; `questions[].context` is the question plus the answering line if any, each `"Speaker: text"`; `questions[].topic_match` is `"on topic"` if the question's subject matches its own discussion, `"other item (TITLE)"` if it instead clearly belongs to a different agenda item (name it), or `"no keyword match"` if you can't tell either way — never assert a stronger claim like "off topic" than a text-only read supports. Evidence strings stay ≤ 14 chars (`t=10:31` or `L14`); caps of ≤12 agenda items, ≤12 participants, ≤6 presenters, ≤20 decisions, ≤8 actions, ≤24 questions, ≤6 notes keep constrained outputs safe.
 
 **Anchoring an agenda item to its transcript span** (v1.5): match each item to the transcript passage that best represents it — highest shared vocabulary with the item's title, not merely the first sentence containing any one of its words — so a strong topic-opening passage wins over an earlier throwaway mention of the same words. `substantive` is a content judgment over that whole span (real, sustained discussion, or a recorded decision/action — never a passing one-line reference), independent of how many conversational turns it took or what the clock says; a topic thoroughly covered in a single long turn is substantive, and a brief but decisive go/no-go call is substantive by virtue of the decision alone. If no passage of the transcript plausibly corresponds to an item at all, set `located: false` — do not report `substantive: false` and stop there, since that reads as "the meeting skipped this" when the honest statement is "this could not be found," which may equally mean the wording differed from the agenda.
+
+**Verifying a decision, not just detecting one** (v1.6): decision-adjacent language is not the same evidence as a decision actually taken. A pattern-only pipeline (Mode 3) will fire on a question, a negation, a hypothetical, an unadopted proposal, a deferral, and bare assent just as readily as on a real decision, so each candidate must be checked against the decision-verification gate in §1 before being counted at all — this changes what counts as `outcomes.decisions[]`, and therefore reaches MoM fidelity (D6) and decision-driven `closed`/coverage (D1, D6), unlike the presentation-only additions below. A surviving decision is then enriched with `time`, `agenda_item`, `context`, and `basis` so it can be verified against the transcript without a second read-through.
 
 ## 3. Scoring tool (implement as code)
 
@@ -210,10 +223,11 @@ Learned in production and required for reliability:
 2. **Dimension scorecard** — six scores with weights; Not Assessable rows flagged
 3. **Agenda coverage map** — per item: presenter(s) (an item may list more than one — credit and disclose accordingly, per §1 DIVISION OF LABOR and the D3 scoring notes in §3), planned vs actual minutes, order, status. Status is one of closed / open / skipped / **not found** — the last is a distinct, honest label for `located: false` (a measurement failure), never collapsed into "skipped" (a finding that it genuinely wasn't discussed). Every not-found item is also named individually in Flags.
 4. **Presenter table** — one row per presenter, all D3 metrics; a co-presented item contributes to every named presenter's row
-5. **Participation table** — anonymizable; talk share, contribution mix
-6. **Decisions & actions register** — full decision text (never summarized or clipped) with the speaker who stated it; action text, owner, due date; evidence reference on every entry
-7. **Flags** — unanswered and deferred questions listed individually by full text (not just a count), overruns, unresolved items, MoM gaps, and every fired assessability gate; each with evidence
-8. **Data-quality note + configuration** — artifacts received, format detected, transcript coverage %, timestamp resolution, proxies used, full config
+5. **Participation table** — anonymizable; talk share, contribution mix. Render only attendees with a positively-measured nonzero talk share; an attendee whose share is unmeasurable (`null`) is still listed, but one measured at exactly zero is omitted with a disclosed count ("N attendees present with no recorded speech are not listed") rather than shown at a flat 0% — they still count toward attendance rate, active contributors and speaking balance.
+6. **Attendee questions** — every question, grouped by asker (anonymizable, same map as the Participation table), with its resolution status and responder, the agenda item under discussion when it was asked, and its `topic_match` (see §2)
+7. **Decisions & actions register** — full decision text (never summarized or clipped, and verified per the decision-verification gate in §1) with the speaker who stated it, when, and the agenda item it belongs to; surrounding context and the basis that qualified it; action text, owner, due date; evidence reference on every entry
+8. **Flags** — unanswered and deferred questions listed individually by full text (not just a count), overruns, unresolved items, MoM gaps, and every fired assessability gate; each with evidence
+9. **Data-quality note + configuration** — artifacts received, format detected, transcript coverage %, timestamp resolution, proxies used, full config
 
 Ratio metrics print their counts (e.g. `Decision yield 100% · 1/1`) so thin evidence is visible.
 
@@ -229,6 +243,7 @@ Ratio metrics print their counts (e.g. `Decision yield 100% · 1/1`) so thin evi
 
 ## 7. Changelog
 
+**v1.6** — decisions are now verified, not just pattern-matched: a candidate must survive an explicit disqualifier check (question, negation, hypothetical, unadopted proposal, deferral, bare assent) before being counted at all, which reaches MoM fidelity (D6) and decision-driven `closed`/coverage (D1, D6) — unlike the rest of this revision, this changes what gets scored, though the Sample's own three decisions all survive unchanged. Surviving decisions gained `time`, `agenda_item`, `context`, and `basis` (§2), rendered as their own full-width report section instead of split with actions. `interaction.questions[]` gained `agenda_item` and a three-state `topic_match` (on topic / other item / no keyword match), surfaced in a new **Attendee questions** report section (§5) grouped by asker. The Participation table now omits attendees with a positively-measured zero talk share, disclosing the count instead of listing them at a flat 0% — a `null` (unmeasurable) share is never omitted. Caps raised: decisions ≤6→≤20, questions ≤12→≤24. No scoring weight or band changed; the Sample acceptance value is unchanged from v1.5 (MPI 70.92).
 **v1.5** — agenda anchoring now scores every item against every transcript passage by stemmed keyword overlap and assigns globally best-first, instead of "first utterance containing any keyword" — fixes an item's real discussion losing its anchor to an earlier passing mention of the same words, and two items sharing an ambiguous keyword no longer orphans whichever was listed second. `substantive` is redefined as a content judgment (a word-count floor over the mapped span, or a recorded decision/action) instead of a turn-count-and-1-minute-floor test, so it means the same thing with or without timestamps and can no longer be defeated by clock-resolution artifacts (two anchors landing in the same displayed minute) or by a topic covered thoroughly in a single long turn. Added `agenda_items[].located` to distinguish "the matcher never found this topic" from "it was found but wasn't real discussion" — both in the schema and in the report template's status (§5), plus an individual Flags entry naming every not-found item. No scoring weight, band, or MPI band threshold changed.
 **v1.4** — multi-presenter agenda items (`agenda_items[].owners`, credited and disclosed rather than silently dropped); off-agenda ratio scored by disclosed keyword-proximity approximation in Mode 3 instead of permanently Not Assessable; zero-count honesty gate (a detector finding nothing emits `null`, never a scored `0`) applied to `feedback_instances` and to agenda items a matcher couldn't locate; full decision text with `speaker` attribution, never clipped; `interaction.questions[]` so unanswered/deferred questions are named individually in flags, not just counted.
 **v1.3** — input normalization for WebVTT/SRT/Teams exports; caption-only fallback; not-a-name guard; evidence-honesty gates (condensed transcripts, timestamp resolution, attendance grounding, audio-only signals, semantic off-agenda); counts beside ratios; robust-operation section (splitting, JSON repair, retries, oversize fallback); deterministic-extractor deployment mode.
