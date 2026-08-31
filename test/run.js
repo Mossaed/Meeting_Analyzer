@@ -34,6 +34,18 @@ function assertEqual(actual, expected, msg) {
 }
 function assertTrue(cond, msg) { if (!cond) throw new Error(msg || "expected true"); }
 function assertNull(v, msg) { if (v !== null) throw new Error((msg || "value") + ": expected null, got " + JSON.stringify(v)); }
+// Counts <li> items inside one .card.sect section on the (already rendered)
+// participant page, identified by its <h2> title -- used to check a
+// section's rendered item count against the matching Contributions-cell
+// counter (engine v2.2 parity).
+function countSectionLis(html, secTitle) {
+  const startIdx = html.indexOf(">" + secTitle + "<");
+  if (startIdx === -1) return -1;
+  const nextCard = html.indexOf('<div class="card sect">', startIdx);
+  const chunk = nextCard === -1 ? html.slice(startIdx) : html.slice(startIdx, nextCard);
+  const m = chunk.match(/<li/g);
+  return m ? m.length : 0;
+}
 
 // ---------------------------------------------------------------------
 console.log("=== Fixture A: built-in Sample meeting (local rule engine) ===");
@@ -1102,6 +1114,36 @@ console.log("\n=== Participation counts + participant drill-down (engine v2.0) =
     assertTrue((html.match(/class="dotsBtn"/g) || []).length >= 5, "expected at least 5 dotsBtn buttons"));
   check("Sara's row carries her name in the drill-down button's data-pname", () =>
     assertTrue(html.includes('data-pname="Sara"'), "expected data-pname=\"Sara\" on a dotsBtn"));
+  check("the standalone Q/D/A columns are gone from the Participation table (engine v2.2)", () =>
+    assertTrue(!/<th class="num">Q<\/th>/.test(html) && !/<th class="num">D<\/th>/.test(html) && !/<th class="num">A<\/th>/.test(html), "expected only the Contributions cell to carry these letters"));
+  check("the Contributions cell carries all seven letters, D and T included (engine v2.2)", () =>
+    assertTrue(/Q0 · A1 · P1 · R1 · I2 · D2 · T0/.test(html), "expected Sara's row to read Q0·A1·P1·R1·I2·D2·T0 -- " + (html.match(/Q\d[^<]*/g) || [])));
+  check("every shown Sample attendee's Q/A/P/R/I/D/T counters match the plan's expected table (engine v2.2)", () => {
+    const expected = { Sara: "Q0 · A1 · P1 · R1 · I2 · D2 · T0", Omar: "Q2 · A0 · P1 · R0 · I0 · D0 · T1",
+      Amir: "Q0 · A1 · P0 · R1 · I1 · D1 · T0", Dana: "Q0 · A0 · P0 · R1 · I0 · D0 · T0",
+      Lina: "Q0 · A0 · P0 · R0 · I1 · D0 · T1", Karl: "Q1 · A0 · P0 · R0 · I0 · D0 · T0" };
+    for (const [n, want] of Object.entries(expected))
+      assertTrue(html.includes(want), n + ": expected \"" + want + "\" in the rendered table");
+  });
+  check("extraction timeline entries carry kind and answer tags (engine v2.2)", () => {
+    const sara = ext.participants.find(p => p.name === "Sara");
+    assertTrue(sara.timeline.some(u => u.kind === "info") && sara.timeline.some(u => u.answer === true),
+      JSON.stringify(sara.timeline));
+  });
+  check("Questions/Answers/Proposals/Risks/Info sections render exactly as many items as the matching Contributions-cell counter, for every shown attendee (engine v2.2)", () => {
+    const mismatches = [];
+    ["Sara", "Omar", "Amir", "Dana", "Lina", "Karl"].forEach(nm => {
+      const p = ext.participants.find(x => x.name === nm);
+      sandbox.renderParticipant(nm);
+      const pageHtml = els.report.innerHTML;
+      [["Questions asked", "questions"], ["Answers given", "answers"], ["Proposals", "proposals"], ["Risks", "risks"], ["Info", "info"]]
+        .forEach(([sec, key]) => {
+          const rendered = countSectionLis(pageHtml, sec);
+          if (rendered !== (p[key] || 0)) mismatches.push(nm + " " + sec + ": counter=" + p[key] + " rendered=" + rendered);
+        });
+    });
+    assertTrue(mismatches.length === 0, mismatches.join("; "));
+  });
 
   sandbox.renderParticipant("Sara");
   const pd = els.report.innerHTML;
@@ -1198,6 +1240,48 @@ console.log("\n=== Participation counts + participant drill-down (engine v2.0) =
   check("missing timeline shows the no-timeline message", () =>
     assertTrue(/no timestamped timeline available/i.test(els.report.innerHTML)));
 }
+{
+  // A timeline saved before v2.2 (or a hand-written Route B one) has no
+  // kind/answer tags at all -- the participant page must still classify
+  // each utterance correctly by falling back to utterKind() on the raw
+  // text, and skip Answers given (that needs Q&A pairing, not derivable
+  // from text alone) rather than guessing.
+  const { sandbox, els } = boot(APP_PATH);
+  const legacy = {
+    meeting: { title: "t", date: null, scheduled_minutes: 30, actual_minutes: 30, start_delay_minutes: 0,
+      dead_time_minutes: null, off_agenda_minutes: null, total_talk_minutes: 20, avg_decision_latency_minutes: null, invitees: 5 },
+    agenda_items: [{ title: "Item", planned_minutes: 10, planned_order: 1, actual_minutes: 10, actual_order: 1,
+      substantive: true, decision_expected: false, decision_made: false, closed: false, evidence: "L1", owners: ["Sara"], located: true }],
+    participants: [{ name: "Sara", present: true, minutes_present: 30, talk_minutes: 10, questions: 1, answers: 0, proposals: 1, risks: 1, info: 0,
+      timeline: [
+        { text: "Should we ship this by Friday?", time: "L1", agenda_item: "Item", off_agenda: false },
+        { text: "I suggest we split the release into two phases instead", time: "L2", agenda_item: "Item", off_agenda: false },
+        { text: "There is a real risk the vendor contract slips past the deadline", time: "L3", agenda_item: "Item", off_agenda: false },
+      ] }],
+    presenters: [],
+    interaction: { questions_raised: 1, questions_answered: 0, questions_deferred: 0, questions: null,
+      feedback_instances: null, chat_substantive_messages: null, interruptions_per_10min: null, turns_per_10min: null },
+    outcomes: { actions_total: 0, actions_with_owner_and_due: 0, transcript_items: 0, mom_items: null, matched_items: null, decisions: [], actions: [] },
+    quality: { has_timestamps: false, has_speaker_labels: true, notes: [] },
+  };
+  let threw = false;
+  try {
+    const model = sandbox.compute(legacy);
+    sandbox.render(model);
+    sandbox.renderParticipant("Sara");
+  } catch (e) { threw = e; }
+  const pd = els.report.innerHTML;
+  check("a legacy timeline with no kind/answer tags still classifies via the utterKind() fallback, without throwing (engine v2.2)", () =>
+    assertTrue(!threw, threw && threw.stack));
+  check("...Questions asked gets the question utterance", () =>
+    assertTrue(pd.slice(pd.indexOf("Questions asked"), pd.indexOf("Answers given")).includes("Should we ship"), pd));
+  check("...Proposals gets the suggestion utterance", () =>
+    assertTrue(pd.slice(pd.indexOf("Proposals"), pd.indexOf("Risks")).includes("split the release"), pd));
+  check("...Risks gets the risk utterance", () =>
+    assertTrue(pd.slice(pd.indexOf("Risks"), pd.indexOf("Info")).includes("vendor contract slips"), pd));
+  check("...Answers given stays empty rather than guessing (no answer tag to derive from text alone)", () =>
+    assertTrue(pd.slice(pd.indexOf("Answers given"), pd.indexOf("Proposals")).includes(">None recorded")));
+}
 
 // ---------------------------------------------------------------------
 console.log("\n=== Route B (pasted JSON) back-compat with v1.6 fields (engine v1.6) ===");
@@ -1236,13 +1320,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v2.1'", () =>
-    assertTrue(/engine v2\.1/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.2'", () =>
+    assertTrue(/engine v2\.2/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "2.1"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.2"));
 }
 
 // ---------------------------------------------------------------------
