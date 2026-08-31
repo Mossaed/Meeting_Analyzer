@@ -1220,6 +1220,96 @@ console.log("\n=== Participation counts + participant drill-down (engine v2.0) =
     sandbox.render(model);
     assertTrue(!/Unattributed items/.test(els.report.innerHTML), "catch-all card should not render when every item is tied to a participant row");
   });
+  check("per-person off_agenda_minutes sums to the global off_agenda_minutes on the Sample (engine v2.4)", () => {
+    const sum = Math.round(ext.participants.reduce((a,p) => a + (p.off_agenda_minutes||0), 0) * 10) / 10;
+    assertEqual(sum, ext.meeting.off_agenda_minutes, "per-person off-agenda minutes should sum to the scored global");
+  });
+  check("'Agenda drift by member' card renders under Participation, with Karl's other-item question named and reported deferred (engine v2.4)", () => {
+    sandbox.render(model);
+    const html = els.report.innerHTML;
+    const partsIdx = html.indexOf(">Participation<");
+    const driftIdx = html.indexOf("Agenda drift by member");
+    assertTrue(partsIdx !== -1 && driftIdx > partsIdx, "drift card should render after the Participation card");
+    const handled = html.slice(html.indexOf("How they were handled"), html.indexOf("How they were handled") + 300);
+    assertTrue(/Karl/.test(handled) && /deferred/.test(handled), handled);
+    assertTrue(/1 of 3/.test(html), "expected the Sample's one other-item question of three total");
+  });
+  check("'no keyword match' (Unclear) is never counted as off-topic in the drift tile (engine v2.4)", () => {
+    sandbox.render(model);
+    // Sample has 1 other-item question and 0 no-keyword-match questions;
+    // the "1 of 3" tile must reflect other-item only, not other+unclear.
+    const html = els.report.innerHTML;
+    const tileIdx = html.indexOf("Agenda drift by member");
+    assertTrue(/1 of 3/.test(html.slice(tileIdx, tileIdx + 400)), "off-topic tile should count only the 'other item' verdict");
+  });
+}
+{
+  // off_agenda_minutes must be null (not a false zero) per person too,
+  // under the exact same condition the global figure is null.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "";
+  els.aTrans.value = "[10:00] We shipped the release last night without any issues on the platform.\n[10:05] It went fine across every region we deployed to.";
+  const ext = sandbox.localExtract();
+  check("off_agenda_minutes is null, not 0, per person when off-agenda isn't assessable (engine v2.4)", () => {
+    assertNull(ext.meeting.off_agenda_minutes);
+    ext.participants.forEach(p => assertNull(p.off_agenda_minutes, p.name));
+  });
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  check("both halves gated (no agenda, no speaker labels) -- the drift card is skipped entirely, not shown empty (engine v2.4)", () => {
+    assertTrue(!/Agenda drift by member/.test(els.report.innerHTML));
+  });
+}
+{
+  // No speaker labels: question half of the drift card reads Not
+  // Assessable, but the talk half (which only needs the agenda + text)
+  // still renders real minutes.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — 10 min";
+  els.aTrans.value = [
+    "[10:00] We shipped the release last night without any issues on the platform and it went smoothly for the whole team here.",
+    "[10:05] Did the rollout finish cleanly across every region we deployed to and are there lingering concerns about regressions.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  check("no speaker labels -- drift card's question half is Not Assessable, talk half still renders (engine v2.4)", () => {
+    const html = els.report.innerHTML;
+    assertTrue(/Agenda drift by member/.test(html), "card should still render for the talk half");
+    const driftIdx = html.indexOf("Agenda drift by member");
+    const tiles = html.slice(driftIdx, html.indexOf("</table>", driftIdx));
+    assertTrue(/Not assessable — no speaker labels/.test(tiles), tiles);
+    assertTrue(typeof ext.meeting.off_agenda_minutes === "number", "off-agenda minutes should still be assessable from the agenda+text alone");
+  });
+}
+{
+  // Route B JSON predating v2.4's off_agenda_minutes field must still
+  // render the drift card's question half without throwing, degrading
+  // the per-person talk column to Not Assessable.
+  const { sandbox, els } = boot(APP_PATH);
+  const legacy = {
+    meeting: { title: "t", date: null, scheduled_minutes: 30, actual_minutes: 30, start_delay_minutes: 0,
+      dead_time_minutes: null, off_agenda_minutes: 5, total_talk_minutes: 20, avg_decision_latency_minutes: null, invitees: 5 },
+    agenda_items: [{ title: "Item", planned_minutes: 10, planned_order: 1, actual_minutes: 10, actual_order: 1,
+      substantive: true, decision_expected: false, decision_made: false, closed: false, evidence: "L1", owners: ["Sara"], located: true }],
+    participants: [{ name: "Sara", present: true, minutes_present: 30, talk_minutes: 10, questions: 0, answers: 0, proposals: 0, risks: 0, info: 0 }],
+    presenters: [],
+    interaction: { questions_raised: 1, questions_answered: 1, questions_deferred: 0,
+      questions: [{ text: "q?", asker: "Sara", status: "answered", responder: "Omar", evidence: "L1", agenda_item: "Item", topic_match: "other item (Foo)" }],
+      feedback_instances: null, chat_substantive_messages: null, interruptions_per_10min: null, turns_per_10min: null },
+    outcomes: { actions_total: 0, actions_with_owner_and_due: 0, transcript_items: 0, mom_items: null, matched_items: null, decisions: [], actions: [] },
+    quality: { has_timestamps: false, has_speaker_labels: true, notes: [] },
+  };
+  let threw = false, model;
+  try { model = sandbox.compute(legacy); sandbox.render(model); } catch (e) { threw = e; }
+  check("legacy Route B JSON without participants[].off_agenda_minutes renders the drift card without throwing (engine v2.4)", () => {
+    assertTrue(!threw, threw && threw.stack);
+    const html = els.report.innerHTML;
+    assertTrue(/Agenda drift by member/.test(html));
+    const rowIdx = html.indexOf("Off-agenda talk");
+    const row = html.slice(rowIdx, html.indexOf("</table>", rowIdx));
+    assertTrue(/<td class="num" dir="ltr">—<\/td>\s*<td class="num" dir="ltr">—<\/td><\/tr>/.test(row), row);
+  });
 }
 {
   // A decision/action/question whose person can't be reached from any
@@ -1371,13 +1461,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v2.3'", () =>
-    assertTrue(/engine v2\.3/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.4'", () =>
+    assertTrue(/engine v2\.4/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "2.3"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.4"));
 }
 
 // ---------------------------------------------------------------------
