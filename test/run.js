@@ -853,10 +853,11 @@ console.log("\n=== Decisions: verified, enriched with time/agenda/context/basis 
   const pd = els.report.innerHTML;
   check("participant page shows a decision's agenda-item tag under Decisions stated (engine v2.1)", () =>
     assertTrue(/class="agtag">Launch go\/no-go</.test(pd) || /class="agtag">Budget check</.test(pd), pd.slice(pd.indexOf("Decisions stated"), pd.indexOf("Decisions stated") + 400)));
-  check("participant page shows a decision's preceding context line, not just the decision itself (engine v2.1)", () =>
-    assertTrue(/Launch go\/no-go for the pricing page/.test(pd), "expected Lina's preceding line ahead of Sara's decision"));
-  check("participant page shows a decision's basis (the qualifying trigger phrase) (engine v2.1)", () =>
-    assertTrue(/matched trigger phrase/.test(pd), "expected a basis line under a decision"));
+  check("Decisions stated shows the decision text", () =>
+    assertTrue(pd.includes("we go live Monday"), "expected Sara's decision text under Decisions stated"));
+  check("Decisions stated is agenda item and text only -- no preceding context line or basis (engine v2.1)", () =>
+    assertTrue(!/Launch go\/no-go for the pricing page/.test(pd) && !/matched trigger phrase/.test(pd),
+      "expected the preceding context line and basis to no longer render on the participant page"));
 }
 
 // ---------------------------------------------------------------------

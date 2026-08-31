@@ -135,7 +135,6 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 .list .body{flex:1;min-width:0}
 .list .ctx{margin-top:5px;font-size:11px;color:var(--muted);line-height:1.5}
 .list .ctx div{padding-inline-start:8px;border-inline-start:2px solid var(--line)}
-.list .basis{margin-top:4px;font-size:11px;color:var(--muted);font-style:italic}
 .tip{position:relative;display:inline-flex;vertical-align:middle}
 .tip .tipchk{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .tip .tipicon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:4px;border-radius:99px;font-size:11px;line-height:1;color:var(--muted);cursor:pointer;user-select:none}
@@ -2023,9 +2022,7 @@ function renderParticipant(name) {
   const decList = decisions.length
     ? `<ul class="list rich">${decisions.map(d => `<li><div class="body">
         ${d.agenda_item?`<div class="rowhead"><span class="agtag">${esc(d.agenda_item)}</span></div>`:""}
-        ${d.context && d.context.length > 1 ? `<div class="ctx">${d.context.slice(0,-1).map(c=>`<div>${esc(c)}</div>`).join("")}</div>` : ""}
         <div>${esc(d.text)}</div>
-        ${d.basis ? `<div class="basis">${esc(d.basis)}</div>` : ""}
       </div>${d.time?`<span class="evi" dir="ltr">${esc(d.time)}</span>`:""}</li>`).join("")}</ul>`
     : `<div class="foot">${t("pdNone")}</div>`;
   const actList = actions.length
