@@ -155,7 +155,9 @@ console.log("\n=== Evidence-honesty gates (agent spec sec1 EVIDENCE-HONESTY GATE
 console.log("\n=== Transcript format auto-detection (reuse guide sec3 Route A) ===");
 function extractFirstUtterance(sandbox, raw) {
   const norm = sandbox.normalizeTranscript(raw);
-  const uts = sandbox.lxParseTranscript(norm.text);
+  // same two-step the production path runs (localExtract): a text that was
+  // normalized from a structured export carries its blockFmt flag through.
+  const uts = sandbox.lxParseTranscript(norm.text, !!norm.fmt);
   return uts.find(u => u.sp);
 }
 {
@@ -186,6 +188,55 @@ function extractFirstUtterance(sandbox, raw) {
     const teams = "Sara 0:04\nLet's get started with the review.\n";
     const u = extractFirstUtterance(sandbox, teams);
     assertEqual(u && u.sp, "Sara");
+  });
+  check("timestamp-first block format '02:32:23  Name' (engine v2.3)", () => {
+    const u = extractFirstUtterance(sandbox, "02:32:23  Sara Malik\nThe budget is trending under plan this quarter.\n");
+    assertEqual(u && u.sp, "Sara Malik");
+  });
+  check("a speaker label containing lowercase words survives, timestamp-first (engine v2.3)", () => {
+    const u = extractFirstUtterance(sandbox, "02:32:23  The respective team\nThe budget is trending under plan this quarter.\n");
+    assertEqual(u && u.sp, "The respective team");
+  });
+  check("...and speaker-first, which used to drop the whole transcript (engine v2.3)", () => {
+    const u = extractFirstUtterance(sandbox, "The respective team 01:19:06\nThe budget is trending under plan this quarter.\n");
+    assertEqual(u && u.sp, "The respective team");
+  });
+  check("block format attributes every turn, both orderings (engine v2.3)", () => {
+    const raw = ["02:32:23  The respective team", "We reviewed the budget together.",
+      "02:35:10  The Chairman", "Can we close the vendor contract this week?",
+      "02:39:44  The respective team", "Yes, by Friday."].join("\n");
+    const norm = sandbox.normalizeTranscript(raw);
+    const uts = sandbox.lxParseTranscript(norm.text, !!norm.fmt);
+    assertEqual(uts.length, 3, "expected one utterance per block");
+    assertEqual(uts.map(u => u.sp).join("|"), "The respective team|The Chairman|The respective team");
+  });
+  check("an ALL-CAPS label and an initialled name are both accepted (engine v2.3)", () => {
+    assertEqual(extractFirstUtterance(sandbox, "THE CHAIRMAN 01:19:06\nThe budget is under plan.\n").sp, "THE CHAIRMAN");
+    assertEqual(extractFirstUtterance(sandbox, "01:19:06 Sara M.\nThe budget is under plan.\n").sp, "Sara M.");
+  });
+  check("a sentence is never mistaken for a speaker header (engine v2.3)", () => {
+    // Bare (unbracketed) timestamp + a full sentence: too many words and a
+    // terminal period, so it stays speech with no speaker attributed.
+    const raw = "10:00 We shipped the release last night without any issues on the platform.";
+    const norm = sandbox.normalizeTranscript(raw);
+    assertNull(norm.fmt, "should not be detected as a block-format export");
+    const uts = sandbox.lxParseTranscript(norm.text, !!norm.fmt);
+    assertTrue(uts.length === 1 && uts[0].sp === null, JSON.stringify(uts));
+  });
+  check("a label word on the not-a-name list is never a speaker header (engine v2.3)", () => {
+    const norm = sandbox.normalizeTranscript("02:32:23 Decision\nWe approved the budget increase.");
+    assertNull(norm.fmt, "\"Decision\" must not open a speaker block");
+  });
+  check("Arabic block format with Arabic-Indic digits, both orderings (engine v2.3)", () => {
+    const body = "\nمراجعة الميزانية نحن ضمن الخطة هذا الربع.";
+    assertEqual(extractFirstUtterance(sandbox, "٠٢:٣٢:٢٣  فريق المالية" + body).sp, "فريق المالية");
+    assertEqual(extractFirstUtterance(sandbox, "فريق المالية ٠١:١٩:٠٦" + body).sp, "فريق المالية");
+  });
+  check("inline caption with an early colon keeps its honest no-speaker verdict (engine v2.3)", () => {
+    const fresh = boot(APP_PATH);
+    fresh.els.aTrans.value = "[10:03] In summary: we shipped it last night without issues.\n[10:06] It has been stable since then across regions.";
+    const ext = fresh.sandbox.localExtract();
+    assertTrue(ext.quality.has_speaker_labels === false, "loose labels must not leak into inline/caption parsing");
   });
   check("caption-only input with no speaker labels still parses (people metrics n/a)", () => {
     const fresh = boot(APP_PATH);
@@ -1320,13 +1371,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v2.2'", () =>
-    assertTrue(/engine v2\.2/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.3'", () =>
+    assertTrue(/engine v2\.3/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "2.2"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.3"));
 }
 
 // ---------------------------------------------------------------------

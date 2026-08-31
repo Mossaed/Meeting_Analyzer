@@ -160,7 +160,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 <header>
   <div class="wrap hd">
     <div class="mark">MPEF <b>Analyzer</b></div>
-    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.2</span></div>
+    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.3</span></div>
     <div class="spacer"></div>
     <div class="state" id="runState" aria-live="polite" data-i18n="runReady">offline-ready</div>
   </div>
@@ -273,7 +273,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 /* Single source for the build stamp shown in the header and the method
    footer -- the filename never changes between versions (reuse guide sec7
    / sec8), so this constant is the only reliable place to bump it. */
-const ENGINE_VERSION = "2.2";
+const ENGINE_VERSION = "2.3";
 const engineVerEl = document.getElementById("engineVerStamp");
 if (engineVerEl) engineVerEl.textContent = "engine v" + ENGINE_VERSION;
 
@@ -935,6 +935,24 @@ const RX = {
 const NOTNAME = new Set(["decision","decisions","action","actions","note","notes","risk","risks","agenda","update","summary","question","questions","answer","answers","topic","item","reminder","warning","info","todo","fyi","minutes","chat","next","open","key",
   "قرار","قرارات","إجراء","اجراء","إجراءات","اجراءات","ملاحظة","ملاحظات","مخاطر","خطر","أجندة","اجندة","جدول","تحديث","ملخص","سؤال","أسئلة","اسئلة","إجابة","اجابة","موضوع","تذكير","تنبيه","معلومة","دردشة","التالي","مفتوح"]);
 const isName = s => !NOTNAME.has(String(s).trim().split(/\s+/)[0].toLowerCase());
+/* A speaker label on a block-format header line (v2.3) -- deliberately
+   looser than NAME_ANY, because recorders label speakers with things a
+   title-case person-name pattern rejects: "The respective team", "PMO
+   lead", "Facilitator". It stays safe by only ever being applied to a
+   line holding NOTHING but a bare timestamp and the label, so it can't
+   swallow speech: a sentence is excluded by the word cap and by the
+   terminal-punctuation test, and a bracketed "[10:04] ..." line is the
+   inline caption convention, never reinterpreted as a header -- which is
+   what keeps a caption-only transcript's honest "no speaker labels"
+   verdict intact. A trailing initial ("Sara M.") is still a name. */
+const isSpeakerLabel = s => {
+  const v = String(s || "").trim();
+  const n = words(v);
+  return n >= 1 && n <= 5 && v.length <= 48
+    && (!/[.!?؟]$/.test(v) || /\b[A-Z]\.$/.test(v))
+    && new RegExp("^(?:[A-Z\\u00C0-\\u00DE]|[" + AR_LETTER + "])").test(v)
+    && isName(v);
+};
 const STOPW = new Set(["the","and","for","with","from","this","that","update","review","check","item","items","misc","other","about","into",
   "من","في","على","إلى","الى","عن","مع","هذا","هذه","التي","الذي","هل","أن","ان","كان","قد","كل","بين","خلال","أو","او","ثم","كما"]);
 const words = t => (t.trim().match(/\S+/g) || []).length;
@@ -965,12 +983,32 @@ function arDigits(s){
 /* normalize WebVTT / SRT / Teams-export transcripts into "[time] Name: text" lines */
 function normalizeTranscript(raw){
   const NAME = NAME_ANY;
+  /* A block-format transcript puts the speaker -- and usually a timestamp
+     -- alone on a header line, with the spoken text on the lines that
+     follow. Both orderings are common in the wild: "Sara 0:04" (Teams)
+     and "02:32:23  The respective team" (most recorder/minutes exports),
+     so accept either, with the label matched by isSpeakerLabel rather
+     than a title-case person-name pattern (v2.3). Detection and parsing
+     share one headerOf(), so a line can never be counted as a header for
+     the format probe and then parsed as something else. */
+  const TIME = "\\d{1,2}:\\d{2}(?::\\d{2})?";
+  const NAMETIME = new RegExp("^(.{1,48}?)\\s+(" + TIME + ")\\s*$");
+  const TIMENAME = new RegExp("^(" + TIME + ")\\s+(.{1,48}?)\\s*$");
+  const headerOf = raw0 => {
+    /* Arabic-Indic digits are folded first, so an Arabic block transcript
+       ("فريق المالية ٠١:١٩:٠٦") is detected like any other -- lxParseTranscript
+       folds per line too, but that runs after this and would be too late. */
+    const line = arDigits(raw0);
+    let m;
+    if ((m = line.match(NAMETIME)) && isSpeakerLabel(m[1])) return { sp: m[1].trim(), t: m[2], fmt: "speaker + timestamp blocks" };
+    if ((m = line.match(TIMENAME)) && isSpeakerLabel(m[2])) return { sp: m[2].trim(), t: m[1], fmt: "timestamp + speaker blocks" };
+    return null;
+  };
   const looksExport = /-->|<v\s|^WEBVTT/m.test(raw) ||
-    new RegExp("^\\s*" + NAME + "\\s+\\d{1,2}:\\d{2}(?::\\d{2})?\\s*$", "m").test(raw);
+    raw.split(/\r?\n/).some(l => headerOf(l.trim()));
   if (!looksExport) return { text: raw, fmt: null };
   const TIMING = /^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[.,]\d{1,3})?\s*-->\s*/;
   const VOICE = /^<v\s+([^>]+)>\s*([\s\S]*?)(?:<\/v>)?\s*$/;
-  const NAMETIME = new RegExp("^(" + NAME + ")\\s+(\\d{1,2}:\\d{2}(?::\\d{2})?)\\s*$");
   const SPLINE = new RegExp("^" + NAME + "\\s*:\\s*\\S");
   const out = []; let curT = null, curSp = null, fmt = "WebVTT/SRT";
   for (const raw0 of raw.split(/\r?\n/)){
@@ -984,7 +1022,8 @@ function normalizeTranscript(raw){
       const tx = m[2].replace(/<[^>]+>/g, "").trim();
       if (tx) out.push("[" + (curT || "0:00:00") + "] " + curSp + ": " + tx);
       continue; }
-    if ((m = line.match(NAMETIME)) && isName(m[1])){ curSp = m[1].trim(); curT = m[2]; fmt = "Teams export"; continue; }
+    const hd = headerOf(line);
+    if (hd){ curSp = hd.sp; curT = hd.t; fmt = hd.fmt; continue; }
     const clean = line.replace(/<[^>]+>/g, "").trim(); if (!clean) continue;
     if (curT || curSp){
       if (SPLINE.test(clean) && isName(clean.split(":")[0])) out.push("[" + (curT || "0:00:00") + "] " + clean);
@@ -995,11 +1034,22 @@ function normalizeTranscript(raw){
   }
   return { text: out.join("\n"), fmt };
 }
-function lxParseTranscript(text){
+/* blockFmt is set when normalizeTranscript rewrote the text from a
+   structured export (header blocks, WebVTT, SRT). In that case the
+   speaker was established structurally -- by a line carrying nothing but
+   a timestamp and the label -- so reBlk re-reads it with the same loose
+   isSpeakerLabel rule, and a label like "The respective team" survives
+   instead of being re-inferred as speech by the strict title-case
+   pattern. Off by default, so a hand-pasted inline or caption transcript
+   (where a leading "Word word:" really can be speech) keeps the strict
+   rule and its honest no-speaker-labels verdict (v2.3). */
+function lxParseTranscript(text, blockFmt){
   const uts = [];
   const NAME = NAME_ANY;
-  const reA = new RegExp("^[\\[\\(]?(\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]?\\s+(" + NAME + ")\\s*[:：]\\s*(.+)$");
-  const reB = new RegExp("^(" + NAME + ")\\s*[\\[\\(](\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]\\s*[:：]?\\s*(.+)$");
+  const TIME = "\\d{1,2}:\\d{2}(?::\\d{2})?";
+  const reA = new RegExp("^[\\[\\(]?(" + TIME + ")[\\]\\)]?\\s+(" + NAME + ")\\s*[:：]\\s*(.+)$");
+  const reB = new RegExp("^(" + NAME + ")\\s*[\\[\\(](" + TIME + ")[\\]\\)]\\s*[:：]?\\s*(.+)$");
+  const reBlk = new RegExp("^[\\[\\(]?(" + TIME + ")[\\]\\)]?\\s+([^\\n:：]{1,48})\\s*[:：]\\s*(.+)$");
   const reC = new RegExp("^(" + NAME + ")\\s*[:：]\\s*(.+)$");
   const reT = /^[\[\(]?(\d{1,2}:\d{2}(?::\d{2})?)[\]\)]?\s*(.*)$/;
   text.split(/\r?\n/).forEach((raw, li) => {
@@ -1007,6 +1057,7 @@ function lxParseTranscript(text){
     let m;
     if ((m = line.match(reA)) && isName(m[2])) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:m[2], tx:m[3], li}); return; }
     if ((m = line.match(reB)) && isName(m[1])) { uts.push({t:parseClockMin(m[2]), ck:m[2], sp:m[1], tx:m[3], li}); return; }
+    if (blockFmt && (m = line.match(reBlk)) && isSpeakerLabel(m[2])) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:m[2].trim(), tx:m[3], li}); return; }
     if ((m = line.match(reC)) && !/^https?/i.test(m[1]) && isName(m[1])) { uts.push({t:null, ck:null, sp:m[1], tx:m[2], li}); return; }
     if ((m = line.match(reT)) && parseClockMin(m[1]) !== null) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:null, tx:m[2]||"", li}); return; }
     if (uts.length && uts[uts.length-1].tx.length < 8000) uts[uts.length-1].tx += " " + line;   // continuation (capped)
@@ -1101,8 +1152,8 @@ function localExtract(){
   const manInterrupt = +$("fInterrupt").value || null;
   const txNorm = normalizeTranscript($("aTrans").value);
   if (txNorm.fmt) addNote("transcript format normalized: " + txNorm.fmt, 1);
-  let uts = lxParseTranscript(txNorm.text);
-  const FMT_ERR = "Couldn't parse any utterances. Supported: [10:04] Name: text · Name: text · WebVTT / SRT · Teams exports.";
+  let uts = lxParseTranscript(txNorm.text, !!txNorm.fmt);
+  const FMT_ERR = "Couldn't parse any utterances. Supported: [10:04] Name: text · Name: text · WebVTT / SRT · speaker/timestamp blocks in either order (Name 0:04 · 02:32:23 Name).";
   if (!uts.length) throw new Error(FMT_ERR);
   let spoken = uts.filter(u => u.sp);
   let pseudo = false;
