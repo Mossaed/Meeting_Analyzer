@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v2.2" - the filename never changes
+3. The dark header should read "engine v2.3" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -25,8 +25,16 @@ QUICK START
 - Transcripts work best with timestamps and speaker labels, e.g.
   [10:04] Sara: Let's get started...
   Plain "Name: text" lines work too, and exports from Teams / Zoom
-  (WebVTT, SRT, "Name 0:04" blocks) are recognized automatically -
-  paste them as-is, any size.
+  (WebVTT, SRT) are recognized automatically - paste them as-is, any size.
+  Block-style transcripts, where the speaker sits on its own line above
+  what they said, work in either order and with any timestamp style:
+      02:32:23  The respective team
+      We are eight percent under on infrastructure this quarter.
+  or
+      The Chairman 01:19:06
+      Can we close the vendor contract before month end?
+  The speaker label doesn't have to be a person's name - "The respective
+  team", "PMO lead" or "Facilitator" are all read as speakers.
 
 BETTER EXTRACTION (OPTIONAL, ANY AI)
 The built-in engine is rule-based. For messy transcripts you can use any AI

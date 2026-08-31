@@ -9,7 +9,7 @@ dimension scores, evidence-cited flags, and full audit trail.
 
 | File | What it is |
 |---|---|
-| `mpef-analyzer-offline.html` | **The app.** Engine v2.2. Open it in any browser — no build, no install, no network. |
+| `mpef-analyzer-offline.html` | **The app.** Engine v2.3. Open it in any browser — no build, no install, no network. |
 | `README.txt` | Quick-start card shipped alongside the app in distribution zips. |
 | `docs/mpef-agent-spec.md` | **Normative behavior contract** — system prompt, canonical extraction schema, scoring formulas, evidence-honesty gates, report template. The app implements this spec's "Mode 3: deterministic extractor". |
 | `docs/mpef-analyzer-reuse-guide.md` | Deployment, customization, and verification guide for redeployers. |
