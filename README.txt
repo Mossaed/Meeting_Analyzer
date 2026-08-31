@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v2.3" - the filename never changes
+3. The dark header should read "engine v2.4" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -85,6 +85,13 @@ GOOD TO KNOW
   the Participation table (no owner named, or a transcript with no speaker
   labels) still isn't lost - it surfaces in a small "Unattributed items"
   card at the bottom of the report instead.
+- Right under the Participation table, "Agenda drift by member" shows who
+  drove the meeting off its agenda: how many questions came in off-topic
+  (and how each was handled - deferred, answered, or left unanswered), how
+  many minutes of each person's talk time drifted off-agenda, and a bar
+  per attendee comparing on-agenda vs. off-agenda talk. A question the
+  keyword engine genuinely can't classify is labeled "Unclear," never
+  counted as off-topic - same honesty rule as everywhere else in this app.
 - Hover (or tap, or Tab to it) the small "i" next to any metric or
   dimension name for a one-line explanation of what it measures.
 - Click "العربية" at the top-left to switch the whole app - including the
