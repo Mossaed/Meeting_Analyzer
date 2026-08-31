@@ -66,11 +66,11 @@ GOOD TO KNOW
   "..." button opens a full page for them - this is where the real detail
   lives: every question they asked (with the answer it got, its status, and
   whether it matched the topic under discussion), every question they
-  answered, every decision they stated (with the exchange leading up to it
-  and what qualified it as a real decision), every action they own, what
-  they said in chat, and every off-agenda contribution - each one explaining
-  why it was judged off-agenda (too far from the agenda's own keywords) -
-  plus a complete timeline. A "Back to report" button returns you to the
+  answered, every decision they stated (agenda item and full text), every
+  action they own, what they said in chat, and every off-agenda
+  contribution - each one explaining why it was judged off-agenda (too far
+  from the agenda's own keywords) - plus a complete timeline. A "Back to
+  report" button returns you to the
   dashboard. A decision, action or question that can't be tied to anyone on
   the Participation table (no owner named, or a transcript with no speaker
   labels) still isn't lost - it surfaces in a small "Unattributed items"
