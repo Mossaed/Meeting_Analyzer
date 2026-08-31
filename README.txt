@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v2.1" - the filename never changes
+3. The dark header should read "engine v2.2" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -61,16 +61,18 @@ GOOD TO KNOW
 - The Participation table only lists attendees who actually spoke; a silent
   attendee (present but never heard from) is dropped from the table with a
   disclosed count, not shown at a flat 0% - they still count in attendance
-  rate, active contributors and speaking balance. Each row also shows how
-  many questions/decisions/actions that person is tied to, and a small
-  "..." button opens a full page for them - this is where the real detail
-  lives: every question they asked (with the answer it got, its status, and
-  whether it matched the topic under discussion), every question they
-  answered, every decision they stated (agenda item and full text), every
-  action they own, what they said in chat, and every off-agenda
-  contribution - each one explaining why it was judged off-agenda (too far
-  from the agenda's own keywords) - plus a complete timeline. A "Back to
-  report" button returns you to the
+  rate, active contributors and speaking balance. Each row also shows a
+  contribution breakdown - Q questions, A answers, P proposals, R risks,
+  I info, D decisions stated, T actions owned - and a small "..." button
+  opens a full page for them, where each of those seven counts has its own
+  section showing exactly what it counted: every question they asked (with
+  the answer it got, its status, and whether it matched the topic under
+  discussion), every question they answered, their proposals and flagged
+  risks, their other substantive remarks, every decision they stated
+  (agenda item and full text), every action they own, what they said in
+  chat, and every off-agenda contribution - each one explaining why it was
+  judged off-agenda (too far from the agenda's own keywords) - plus a
+  complete timeline. A "Back to report" button returns you to the
   dashboard. A decision, action or question that can't be tied to anyone on
   the Participation table (no owner named, or a transcript with no speaker
   labels) still isn't lost - it surfaces in a small "Unattributed items"
