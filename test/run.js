@@ -914,6 +914,230 @@ console.log("\n=== Attendee questions: agenda attribution + topic match (engine 
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== Arabic transcript capture (engine v2.0) ===");
+{
+  // Minimal end-to-end check: before this pass, an Arabic transcript
+  // produced NOTHING -- zero speakers, zero questions, zero decisions,
+  // every agenda item "not found". This is the regression that must
+  // never come back.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. مراجعة المؤشرات — سارة — 10 دقائق";
+  els.aTrans.value = [
+    "[10:04] سارة: نبدأ بمراجعة المؤشرات. التفعيل ارتفع بنسبة 4 بالمئة هذا الأسبوع، وهذا رقم جيد جدا بالنسبة لنا كفريق وللجميع.",
+    "[10:07] عمر: ما سبب ارتفاع التفعيل في هذا الأسبوع تحديدا؟",
+    "[10:08] سارة: قائمة التهيئة الجديدة، والبيانات تظهر ذلك بوضوح شديد لجميع الأعضاء في الفريق دائما.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("Arabic speaker names are captured", () =>
+    assertEqual(ext.participants.map(p => p.name).sort().join(","), ["سارة", "عمر"].sort().join(",")));
+  check("has_speaker_labels is true for an Arabic transcript", () => assertTrue(ext.quality.has_speaker_labels === true));
+  check("Arabic question mark (؟) is detected", () => assertEqual(ext.interaction.questions_raised, 1));
+  check("Arabic Q&A pairing resolves asker and responder", () => {
+    const q = ext.interaction.questions[0];
+    assertTrue(q.asker === "عمر" && q.responder === "سارة", JSON.stringify(q));
+  });
+  check("Arabic agenda item with Arabic-Indic-free duration is located", () => {
+    const item = ext.agenda_items[0];
+    assertTrue(item.located === true && item.planned_minutes === 10, JSON.stringify(item));
+  });
+  check("Arabic-majority disclosure note fires, and filler is Not Assessable", () => {
+    assertTrue(ext.quality.notes.some(n => /Arabic transcript detected/.test(n)), JSON.stringify(ext.quality.notes));
+    assertTrue(ext.presenters.every(p => p.filler_words === null));
+  });
+}
+{
+  // Arabic-Indic digits in both the agenda duration and the transcript
+  // clock must fold to ASCII and parse identically to Latin digits.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. اجتماع — ١٠ دقائق";
+  els.aTrans.value = "[١٠:٠٤] سارة: بداية الاجتماع في الوقت المحدد تماما لجميع الحضور اليوم.";
+  const ext = sandbox.localExtract();
+  check("Arabic-Indic agenda duration (١٠) parses as 10", () => assertEqual(ext.agenda_items[0].planned_minutes, 10));
+  check("Arabic-Indic clock time (١٠:٠٤) parses", () => assertTrue(ext.participants.length === 1 && ext.participants[0].name === "سارة"));
+}
+{
+  // arNorm() must unify common Arabic spelling variants (definite article,
+  // alef forms, plural suffixes) the same way lxStem() unifies English
+  // suffixes -- this is what lets the agenda anchor on paraphrased Arabic
+  // text instead of only an exact substring.
+  const { sandbox } = boot(APP_PATH);
+  check("arNorm unifies المؤشرات / مؤشرات (definite article + plural)", () =>
+    assertEqual(sandbox.arNorm("المؤشرات"), sandbox.arNorm("مؤشرات")));
+  check("arNorm normalizes alef variants (أ/إ/آ -> ا)", () =>
+    assertEqual(sandbox.arNorm("أحمد"), sandbox.arNorm("احمد")));
+}
+{
+  // Mixed Arabic + English in the SAME utterance must be caught by both
+  // lexicons -- code-switching, not just two monolingual meetings.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Sprint Planning — سارة — 10 min";
+  els.aTrans.value = [
+    "[10:00] سارة: Let's start sprint planning, هل يمكننا إنهاء الـ API هذا الأسبوع؟",
+    "[10:01] Omar: اتفقنا — we ship the API by Friday. عمر سيتولى النشر.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("a mixed-script question (؟ at the end of a Latin+Arabic sentence) is detected", () =>
+    assertEqual(ext.interaction.questions_raised, 1));
+  check("a mixed-script decision (Arabic trigger, English content) is captured", () =>
+    assertTrue(ext.outcomes.decisions.some(d => /اتفقنا/.test(d.text)), JSON.stringify(ext.outcomes.decisions)));
+}
+{
+  // Arabic label words (قرار، إجراء...) must never be misread as speaker
+  // names, mirroring the existing English not-a-name guard.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. اجتماع — 10 دقائق";
+  els.aTrans.value = [
+    "[10:00] سارة: نبدأ الاجتماع، لدينا الكثير لنناقشه اليوم مع الفريق بأكمله.",
+    "قرار: سنطلق المنتج الجديد الأسبوع القادم بعد الانتهاء من كل الاختبارات المطلوبة.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("'قرار:' is not read as a speaker name", () =>
+    assertTrue(!ext.participants.some(p => p.name === "قرار"), JSON.stringify(ext.participants)));
+}
+{
+  // Full Arabic sample (mirrors the English demo meeting item-for-item):
+  // agenda anchoring, decisions, actions, questions, off-agenda scoring,
+  // and a final MPI must all come out of the SAME pipeline the English
+  // Sample uses, with zero code path forked for language.
+  const { sandbox, els } = boot(APP_PATH);
+  sandbox.loadArabicSample();
+  const ext = sandbox.localExtract();
+  check("Arabic Sample: all 6 agenda items located", () =>
+    assertTrue(ext.agenda_items.every(i => i.located === true), JSON.stringify(ext.agenda_items.map(i => i.located))));
+  check("Arabic Sample: 3 decisions captured, all attributed to an agenda item", () =>
+    assertTrue(ext.outcomes.decisions.length === 3 && ext.outcomes.decisions.every(d => d.agenda_item), JSON.stringify(ext.outcomes.decisions.map(d => d.agenda_item))));
+  check("Arabic Sample: 2 actions captured with owner and due date", () =>
+    assertTrue(ext.outcomes.actions.length === 2 && ext.outcomes.actions.every(a => a.owner && a.due), JSON.stringify(ext.outcomes.actions)));
+  check("Arabic Sample: the deferred question is flagged as belonging to a different agenda item", () => {
+    const deferred = ext.interaction.questions.find(q => q.status === "deferred");
+    assertTrue(!!deferred && /^other item/.test(deferred.topic_match), JSON.stringify(deferred));
+  });
+  const model = sandbox.compute(ext);
+  check("Arabic Sample: produces a valid, assessable MPI", () =>
+    assertTrue(isFinite(model.mpi) && model.assessable >= 5, "mpi=" + model.mpi + " assessable=" + model.assessable));
+}
+{
+  // The English Sample must be COMPLETELY unaffected by everything added
+  // for Arabic -- same exact MPI as the v1.6 golden fixture.
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  check("English Sample MPI is unchanged after adding Arabic support", () =>
+    assertClose(model.mpi, SAMPLE_EXPECTED.mpi, SAMPLE_EXPECTED.mpiTolerance, "mpi"));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Metric tooltips + i18n (engine v2.0) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  const tipCount = (html.match(/class="tip"/g) || []).length;
+  check("a tooltip renders for every metric row and every dimension meter (29 + 6)", () =>
+    assertEqual(tipCount, 35, "tip count: " + tipCount));
+  check("tooltip bubble text matches the metric's own description", () =>
+    assertTrue(html.includes(sandbox.METRIC_META.coverage.desc.slice(0, 30)), "coverage description not found in rendered tooltip"));
+}
+{
+  const { sandbox } = boot(APP_PATH);
+  const enKeys = Object.keys(sandbox.STR).sort();
+  const missingAr = enKeys.filter(k => !sandbox.STR[k].ar);
+  const missingEn = enKeys.filter(k => !sandbox.STR[k].en);
+  check("every STR entry has both an en and an ar translation", () =>
+    assertTrue(missingAr.length === 0 && missingEn.length === 0, "missing ar: " + JSON.stringify(missingAr) + " missing en: " + JSON.stringify(missingEn)));
+  const metricKeys = Object.keys(sandbox.METRIC_META).sort();
+  const metricArKeys = Object.keys(sandbox.METRIC_META_AR).sort();
+  check("METRIC_META and METRIC_META_AR cover the identical key set", () =>
+    assertEqual(JSON.stringify(metricKeys), JSON.stringify(metricArKeys)));
+  const dimKeys = Object.keys(sandbox.DIM_META).sort();
+  const dimArKeys = Object.keys(sandbox.DIM_META_AR).sort();
+  check("DIM_META and DIM_META_AR cover the identical key set", () =>
+    assertEqual(JSON.stringify(dimKeys), JSON.stringify(dimArKeys)));
+}
+{
+  // Switching language re-renders the SAME computed model (no re-extract,
+  // no re-score) with new text -- band/status/topic_match values stay
+  // canonical English underneath even though the displayed labels change.
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const mpiBefore = model.mpi;
+  const bandBefore = model.band;
+  const html = els.report.innerHTML;
+  check("Dimension scores card title renders in English by default", () =>
+    assertTrue(html.includes("Dimension scores"), "expected default English card title"));
+  check("model.band stays the canonical English value regardless of display language", () =>
+    assertEqual(bandBefore, "Productive"));
+  check("model.mpi is unaffected by rendering", () => assertEqual(model.mpi, mpiBefore));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Participation counts + participant drill-down (engine v2.0) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  check("Participation table has a dots button per shown attendee", () =>
+    assertTrue((html.match(/class="dotsBtn"/g) || []).length >= 5, "expected at least 5 dotsBtn buttons"));
+  check("Sara's row carries her name in the drill-down button's data-pname", () =>
+    assertTrue(html.includes('data-pname="Sara"'), "expected data-pname=\"Sara\" on a dotsBtn"));
+
+  sandbox.renderParticipant("Sara");
+  const pd = els.report.innerHTML;
+  check("participant page renders the participant's name as a heading", () =>
+    assertTrue(/<h1>Sara<\/h1>/.test(pd)));
+  check("participant page includes a decision Sara actually stated", () =>
+    assertTrue(pd.includes("we go live Monday"), "expected Sara's decision text on her own page"));
+  check("participant page includes an action Omar owns when viewing Omar", () => {
+    sandbox.renderParticipant("Omar");
+    const omarPd = els.report.innerHTML;
+    assertTrue(omarPd.includes("update the sheet"), "expected Omar's owned action on his page");
+  });
+  check("participant page includes her off-agenda-tagged utterances section", () =>
+    assertTrue(/Off-agenda contributions/.test(els.report.innerHTML)));
+  check("Back button is present and re-renders the report when clicked via the delegated handler", () => {
+    sandbox.renderParticipant("Sara");
+    assertTrue(els.report.innerHTML.includes('id="pdBackBtn"'));
+  });
+}
+{
+  // Legacy Route B JSON without chat/timeline must degrade gracefully,
+  // not throw -- same defensive-read posture as the v1.6 fields.
+  const { sandbox, els } = boot(APP_PATH);
+  const legacy = {
+    meeting: { title: "t", date: null, scheduled_minutes: 30, actual_minutes: 30, start_delay_minutes: 0,
+      dead_time_minutes: null, off_agenda_minutes: null, total_talk_minutes: 20, avg_decision_latency_minutes: null, invitees: 5 },
+    agenda_items: [{ title: "Item", planned_minutes: 10, planned_order: 1, actual_minutes: 10, actual_order: 1,
+      substantive: true, decision_expected: false, decision_made: false, closed: false, evidence: "L1", owners: ["Sara"], located: true }],
+    participants: [{ name: "Sara", present: true, minutes_present: 30, talk_minutes: 10, questions: 0, answers: 0, proposals: 0, risks: 0, info: 0 }],
+    presenters: [],
+    interaction: { questions_raised: 0, questions_answered: 0, questions_deferred: 0, questions: null,
+      feedback_instances: null, chat_substantive_messages: null, interruptions_per_10min: null, turns_per_10min: null },
+    outcomes: { actions_total: 0, actions_with_owner_and_due: 0, transcript_items: 0, mom_items: null, matched_items: null, decisions: [], actions: [] },
+    quality: { has_timestamps: false, has_speaker_labels: true, notes: [] },
+  };
+  let threw = false;
+  try {
+    const model = sandbox.compute(legacy);
+    sandbox.render(model);
+    sandbox.renderParticipant("Sara");
+  } catch (e) { threw = e; }
+  check("legacy participant JSON without chat/timeline renders the drill-down page without throwing", () =>
+    assertTrue(!threw, threw && threw.stack));
+  check("missing timeline shows the no-timeline message", () =>
+    assertTrue(/no timestamped timeline available/i.test(els.report.innerHTML)));
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Route B (pasted JSON) back-compat with v1.6 fields (engine v1.6) ===");
 {
   const { sandbox, els } = boot(APP_PATH);
@@ -950,13 +1174,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v1.6'", () =>
-    assertTrue(/engine v1\.6/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.0'", () =>
+    assertTrue(/engine v2\.0/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "1.6"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.0"));
 }
 
 // ---------------------------------------------------------------------

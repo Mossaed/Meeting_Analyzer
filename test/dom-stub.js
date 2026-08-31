@@ -29,6 +29,7 @@ const KNOWN_IDS = [
   "fPriorDue", "fPriorClosed", "fPriorTopics", "fPriorRecur",
   "fDead", "fOffAgenda", "fTotalTalk", "fInterrupt",
   "file_aAgenda", "file_aTrans", "file_aMom", "file_aChat", "file_aAtt", "fileJson",
+  "langToggle",
 ];
 
 // Extracts the <script>...</script> body from the app HTML file.
@@ -51,7 +52,9 @@ function boot(htmlPath) {
     document: {
       getElementById: id => els[id] || (els[id] = mockEl(id)),
       querySelector: () => ({ textContent: "", classList: { toggle() {} } }),
+      querySelectorAll: () => [],
       createElement: () => mockEl("tmp"),
+      documentElement: { lang: "", dir: "" },
       body: { appendChild() {}, removeChild() {} },
       execCommand: () => true,
     },
@@ -73,7 +76,8 @@ function boot(htmlPath) {
   // localExtract, normalizeTranscript, ...), which vm attaches directly.
   // Pull the const-bound identifiers the tests need across onto sandbox too,
   // by resolving them as a second script in the same context.
-  const CONST_NAMES = ["CONFIG", "isName", "bandOf", "bandColor", "RX", "NOTNAME", "STOPW", "ENGINE_VERSION"];
+  const CONST_NAMES = ["CONFIG", "isName", "bandOf", "bandColor", "RX", "NOTNAME", "STOPW", "ENGINE_VERSION",
+    "STR", "METRIC_META", "METRIC_META_AR", "DIM_META", "DIM_META_AR", "AR_LETTER"];
   const resolved = vm.runInContext(
     "({" + CONST_NAMES.map(n => n + ": typeof " + n + " !== 'undefined' ? " + n + " : undefined").join(",") + "})",
     sandbox

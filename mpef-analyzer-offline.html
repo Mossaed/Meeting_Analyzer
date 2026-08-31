@@ -20,8 +20,13 @@ button{font-family:var(--body)}
 
 /* header */
 header{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;border-bottom:3px solid var(--teal)}
+/* fixed to the literal top-left of the viewport, independent of dir=rtl --
+   a language switcher that itself moved sides when you switched language
+   would be its own bug; users expect it to stay put. */
+.langBtn{position:fixed;top:10px;left:10px;z-index:30;font-family:var(--mono);font-size:11px;font-weight:500;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:5px 12px;cursor:pointer}
+.langBtn:hover,.langBtn:focus{background:rgba(255,255,255,.18)}
 .hd{display:flex;align-items:center;gap:14px;padding:12px 0}
-.hd .mark{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:.02em}
+.hd .mark{font-family:var(--disp);font-weight:700;font-size:18px;letter-spacing:.02em;margin-left:78px}
 .hd .mark b{color:#5AC9BC}
 .hd .sub{font-size:11.5px;color:#B9C6DB;border-left:1px solid #3A4C68;padding-left:14px}
 .hd .spacer{flex:1}
@@ -110,6 +115,14 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 .sharebar .tr{flex:1;height:8px;background:#EDF1F6;border-radius:5px;overflow:hidden}
 .sharebar .fl{height:100%;background:var(--teal);border-radius:5px}
 .mixdots{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.dotsBtn{background:none;border:1px solid var(--line);border-radius:6px;width:26px;height:22px;font-size:13px;line-height:1;color:var(--muted);cursor:pointer}
+.dotsBtn:hover,.dotsBtn:focus{color:var(--teal-ink);border-color:var(--teal)}
+.pdBack{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12.5px;color:var(--navy);cursor:pointer;margin-bottom:14px}
+.pdBack:hover{border-color:var(--teal);color:var(--teal-ink)}
+.pdHead{display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;padding:16px}
+.pdHead h1{font-family:var(--disp);font-size:20px;margin:0}
+.pdStat{font-size:12px;color:var(--muted)}
+.pdStat b{color:var(--navy);font-family:var(--mono)}
 .twocol{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media(max-width:900px){.twocol{grid-template-columns:1fr}}
 .list{list-style:none}
@@ -121,8 +134,15 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 .list .agtag{font-family:var(--mono);font-size:10px;color:var(--teal-ink);background:#E3F3F0;border-radius:4px;padding:1px 6px}
 .list .body{flex:1;min-width:0}
 .list .ctx{margin-top:5px;font-size:11px;color:var(--muted);line-height:1.5}
-.list .ctx div{padding-left:8px;border-left:2px solid var(--line)}
+.list .ctx div{padding-inline-start:8px;border-inline-start:2px solid var(--line)}
 .list .basis{margin-top:4px;font-size:11px;color:var(--muted);font-style:italic}
+.tip{position:relative;display:inline-flex;vertical-align:middle}
+.tip .tipchk{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tip .tipicon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:4px;border-radius:99px;font-size:11px;line-height:1;color:var(--muted);cursor:pointer;user-select:none}
+.tip .tipicon:hover,.tip .tipicon:focus{color:var(--teal-ink)}
+.tip .tipbubble{position:absolute;inset-inline-start:0;bottom:calc(100% + 6px);z-index:30;width:230px;max-width:min(60vw,280px);background:var(--navy);color:#fff;font-size:11px;line-height:1.55;padding:8px 10px;border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.28);opacity:0;visibility:hidden;transform:translateY(4px);transition:opacity .12s ease,transform .12s ease;pointer-events:none}
+.tip .tipicon:hover + .tipbubble,.tip .tipicon:focus + .tipbubble,.tip .tipchk:checked ~ .tipbubble{opacity:1;visibility:visible;transform:translateY(0)}
+th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal;font-weight:400}
 .flag{display:flex;gap:10px;align-items:baseline;padding:9px 16px;border-bottom:1px solid #EEF1F6;font-size:12.5px}
 .flag:last-child{border-bottom:0}
 .flag .sev{width:8px;height:8px;border-radius:99px;flex:none;position:relative;top:1px}
@@ -141,98 +161,99 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 <header>
   <div class="wrap hd">
     <div class="mark">MPEF <b>Analyzer</b></div>
-    <div class="sub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere · <span id="engineVerStamp">engine v1.6</span></div>
+    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.0</span></div>
     <div class="spacer"></div>
-    <div class="state" id="runState" aria-live="polite">offline-ready</div>
+    <div class="state" id="runState" aria-live="polite" data-i18n="runReady">offline-ready</div>
   </div>
 </header>
+<button type="button" class="langBtn" id="langToggle" aria-label="Switch language">العربية</button>
 
 <div class="wrap grid">
   <!-- ============ INTAKE ============ -->
   <aside class="intake">
     <div class="card">
-      <div class="cap"><h2>Meeting</h2><span class="tag">metadata</span></div>
+      <div class="cap"><h2 data-i18n="cardMeeting">Meeting</h2><span class="tag" data-i18n="tagMetadata">metadata</span></div>
       <div class="bd">
         <div class="frow">
-          <div><label for="mTitle">Title</label><input type="text" id="mTitle" placeholder="Weekly Product Review"></div>
-          <div><label for="mDate">Date</label><input type="date" id="mDate"></div>
+          <div><label for="mTitle" data-i18n="lblTitle">Title</label><input type="text" id="mTitle" placeholder="Weekly Product Review" data-i18n-ph="phTitle"></div>
+          <div><label for="mDate" data-i18n="lblDate">Date</label><input type="date" id="mDate"></div>
         </div>
         <div class="frow">
-          <div><label for="mStart">Scheduled start (HH:MM)</label><input type="text" id="mStart" placeholder="10:00"></div>
-          <div><label for="mSched">Scheduled length (min)</label><input type="number" id="mSched" placeholder="60" min="1"></div>
+          <div><label for="mStart" data-i18n="lblStart">Scheduled start (HH:MM)</label><input type="text" id="mStart" placeholder="10:00"></div>
+          <div><label for="mSched" data-i18n="lblLength">Scheduled length (min)</label><input type="number" id="mSched" placeholder="60" min="1"></div>
         </div>
         <div class="frow">
-          <div><label for="mInv">Invitees (count)</label><input type="number" id="mInv" placeholder="10" min="1"></div>
-          <div><label for="anonToggle" style="display:flex;align-items:center;gap:6px;margin-top:20px;cursor:pointer"><input type="checkbox" id="anonToggle" style="width:auto;margin:0"> Anonymize participants</label></div>
+          <div><label for="mInv" data-i18n="lblInvitees">Invitees (count)</label><input type="number" id="mInv" placeholder="10" min="1"></div>
+          <div><label for="anonToggle" style="display:flex;align-items:center;gap:6px;margin-top:20px;cursor:pointer"><input type="checkbox" id="anonToggle" style="width:auto;margin:0"> <span data-i18n="lblAnonymize">Anonymize participants</span></label></div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="cap"><h2>Artifacts</h2><span class="tag">paste text</span></div>
+      <div class="cap"><h2 data-i18n="cardArtifacts">Artifacts</h2><span class="tag" data-i18n="tagPasteText">paste text</span></div>
       <div class="bd" id="artBox">
-        <div class="art"><div class="lr"><label for="aAgenda">Agenda</label><span class="req">REQUIRED</span>
-          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aAgenda">Import file</label><input type="file" id="file_aAgenda" accept=".txt,.md" style="display:none"><span class="st" data-for="aAgenda" style="margin-left:0">empty</span></span></div>
-          <textarea id="aAgenda" placeholder="1. KPI review — Sara — 10 min&#10;2. Roadmap update — Amir — 10 min&#10;…"></textarea></div>
-        <div class="art"><div class="lr"><label for="aTrans">Transcript</label><span class="req">REQUIRED</span>
-          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aTrans">Import file</label><input type="file" id="file_aTrans" accept=".txt,.vtt,.srt,.md" style="display:none"><span class="st" data-for="aTrans" style="margin-left:0">empty</span></span></div>
-          <textarea id="aTrans" style="min-height:150px" placeholder="[00:04] Sara: Let's get started…&#10;(timestamps + speaker labels give the best coverage)"></textarea></div>
-        <div class="art"><div class="lr"><label for="aMom">Minutes (MoM)</label><span class="opt">OPTIONAL</span>
-          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aMom">Import file</label><input type="file" id="file_aMom" accept=".txt,.md" style="display:none"><span class="st" data-for="aMom" style="margin-left:0">empty</span></span></div>
-          <textarea id="aMom" placeholder="Decisions, action items as circulated…"></textarea></div>
-        <div class="art"><div class="lr"><label for="aChat">Chat log</label><span class="opt">OPTIONAL</span>
-          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aChat">Import file</label><input type="file" id="file_aChat" accept=".txt,.md" style="display:none"><span class="st" data-for="aChat" style="margin-left:0">empty</span></span></div>
-          <textarea id="aChat" placeholder="10:12 Omar: what's the churn number?…"></textarea></div>
-        <div class="art"><div class="lr"><label for="aAtt">Attendance log</label><span class="opt">OPTIONAL</span>
-          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aAtt">Import file</label><input type="file" id="file_aAtt" accept=".txt,.md" style="display:none"><span class="st" data-for="aAtt" style="margin-left:0">empty</span></span></div>
-          <textarea id="aAtt" placeholder="Sara joined 10:00, left 11:07…"></textarea></div>
+        <div class="art"><div class="lr"><label for="aAgenda" data-i18n="lblAgenda">Agenda</label><span class="req" data-i18n="reqRequired">REQUIRED</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aAgenda" data-i18n="importFile">Import file</label><input type="file" id="file_aAgenda" accept=".txt,.md" style="display:none"><span class="st" data-for="aAgenda" style="margin-left:0" data-i18n="stEmpty">empty</span></span></div>
+          <textarea id="aAgenda" dir="auto" placeholder="1. KPI review — Sara — 10 min&#10;2. Roadmap update — Amir — 10 min&#10;…" data-i18n-ph="phAgenda"></textarea></div>
+        <div class="art"><div class="lr"><label for="aTrans" data-i18n="lblTranscript">Transcript</label><span class="req" data-i18n="reqRequired">REQUIRED</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aTrans" data-i18n="importFile">Import file</label><input type="file" id="file_aTrans" accept=".txt,.vtt,.srt,.md" style="display:none"><span class="st" data-for="aTrans" style="margin-left:0" data-i18n="stEmpty">empty</span></span></div>
+          <textarea id="aTrans" dir="auto" style="min-height:150px" placeholder="[00:04] Sara: Let's get started…&#10;(timestamps + speaker labels give the best coverage)" data-i18n-ph="phTranscript"></textarea></div>
+        <div class="art"><div class="lr"><label for="aMom" data-i18n="lblMinutes">Minutes (MoM)</label><span class="opt" data-i18n="optOptional">OPTIONAL</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aMom" data-i18n="importFile">Import file</label><input type="file" id="file_aMom" accept=".txt,.md" style="display:none"><span class="st" data-for="aMom" style="margin-left:0" data-i18n="stEmpty">empty</span></span></div>
+          <textarea id="aMom" dir="auto" placeholder="Decisions, action items as circulated…" data-i18n-ph="phMinutes"></textarea></div>
+        <div class="art"><div class="lr"><label for="aChat" data-i18n="lblChat">Chat log</label><span class="opt" data-i18n="optOptional">OPTIONAL</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aChat" data-i18n="importFile">Import file</label><input type="file" id="file_aChat" accept=".txt,.md" style="display:none"><span class="st" data-for="aChat" style="margin-left:0" data-i18n="stEmpty">empty</span></span></div>
+          <textarea id="aChat" dir="auto" placeholder="10:12 Omar: what's the churn number?…" data-i18n-ph="phChat"></textarea></div>
+        <div class="art"><div class="lr"><label for="aAtt" data-i18n="lblAttendance">Attendance log</label><span class="opt" data-i18n="optOptional">OPTIONAL</span>
+          <span style="margin-left:auto;display:flex;gap:10px;align-items:baseline"><label class="impLbl" for="file_aAtt" data-i18n="importFile">Import file</label><input type="file" id="file_aAtt" accept=".txt,.md" style="display:none"><span class="st" data-for="aAtt" style="margin-left:0" data-i18n="stEmpty">empty</span></span></div>
+          <textarea id="aAtt" dir="auto" placeholder="Sara joined 10:00, left 11:07…" data-i18n-ph="phAttendance"></textarea></div>
         <div class="runbar">
-          <button class="btn btn-run" id="localBtn">Extract &amp; score locally</button>
-          <button class="btn btn-ghost" id="demoBtn" title="Load a small sample meeting">Sample</button>
+          <button class="btn btn-run" id="localBtn" data-i18n="btnExtract">Extract &amp; score locally</button>
+          <button class="btn btn-ghost" id="demoBtn" title="Load a small sample meeting" data-i18n="btnSample" data-i18n-title="titleSample">Sample</button>
         </div>
         <div class="err" id="errBox" role="alert" aria-live="assertive"></div>
         <div class="note" id="noteBox" aria-live="polite"></div>
         <div class="offline">
-          <div class="ofhd">Any-AI route <span>for higher-quality extraction</span></div>
-          <div class="ofsub">Copy the extraction prompt, run it in any AI chat when convenient, paste the JSON it returns, and score locally. Local extraction also drops its JSON below so you can inspect, correct, and re-score.</div>
-          <div class="ofbtns"><button class="btn btn-ghost" id="copyPromptBtn" style="flex:1">1 · Copy extraction prompt</button><button class="btn btn-ghost" id="savePromptBtn" title="For very large transcripts — avoids clipboard limits">Save as .txt</button></div>
+          <div class="ofhd"><span data-i18n="ofhdAnyAI">Any-AI route</span> <span data-i18n="ofhdAnyAITag">for higher-quality extraction</span></div>
+          <div class="ofsub" data-i18n="ofsub">Copy the extraction prompt, run it in any AI chat when convenient, paste the JSON it returns, and score locally. Local extraction also drops its JSON below so you can inspect, correct, and re-score.</div>
+          <div class="ofbtns"><button class="btn btn-ghost" id="copyPromptBtn" style="flex:1" data-i18n="btnCopyPrompt">1 · Copy extraction prompt</button><button class="btn btn-ghost" id="savePromptBtn" title="For very large transcripts — avoids clipboard limits" data-i18n="btnSaveTxt" data-i18n-title="titleSaveTxt">Save as .txt</button></div>
           <div style="display:flex;align-items:baseline;gap:10px;margin-top:10px">
-            <label for="pasteJson" style="margin:0">2 · Paste the JSON the AI returns</label>
-            <label class="impLbl" for="fileJson" style="margin-left:auto">Import file</label><input type="file" id="fileJson" accept=".json,.txt" style="display:none">
+            <label for="pasteJson" style="margin:0" data-i18n="lblPasteJson">2 · Paste the JSON the AI returns</label>
+            <label class="impLbl" for="fileJson" style="margin-left:auto" data-i18n="importFile">Import file</label><input type="file" id="fileJson" accept=".json,.txt" style="display:none">
           </div>
-          <textarea id="pasteJson" style="min-height:72px" placeholder='{"meeting":{...},"agenda_items":[...],"participants":[...]}'></textarea>
-          <div class="ofbtns"><button class="btn btn-run" id="scoreJsonBtn" style="flex:1">3 · Score pasted JSON</button></div>
-          <div class="ofbtns"><button class="btn btn-ghost" id="downloadJsonBtn" style="flex:1">Download extraction JSON</button></div>
+          <textarea id="pasteJson" dir="ltr" style="min-height:72px" placeholder='{"meeting":{...},"agenda_items":[...],"participants":[...]}'></textarea>
+          <div class="ofbtns"><button class="btn btn-run" id="scoreJsonBtn" style="flex:1" data-i18n="btnScoreJson">3 · Score pasted JSON</button></div>
+          <div class="ofbtns"><button class="btn btn-ghost" id="downloadJsonBtn" style="flex:1" data-i18n="btnDownloadJson">Download extraction JSON</button></div>
         </div>
-        <div class="hint"><b>Extract &amp; score locally</b> runs the entire pipeline on this device — a deterministic rule engine reads the artifacts, then the same scoring code renders the dashboard. Nothing leaves this machine and no connection is ever used. Best with timestamped, speaker-labeled transcripts. For higher-quality extraction on messy input, use the <b>any-AI route</b> below in any chat tool you like, then paste its JSON back — scoring is identical. Missing evidence marks its dimensions <b>Not Assessable</b> — never estimated.</div>
+        <div class="hint" data-i18n-html="hintExtract"><b>Extract &amp; score locally</b> runs the entire pipeline on this device — a deterministic rule engine reads the artifacts, then the same scoring code renders the dashboard. Nothing leaves this machine and no connection is ever used. Best with timestamped, speaker-labeled transcripts. For higher-quality extraction on messy input, use the <b>any-AI route</b> below in any chat tool you like, then paste its JSON back — scoring is identical. Missing evidence marks its dimensions <b>Not Assessable</b> — never estimated.</div>
       </div>
     </div>
 
     <div class="card">
-      <div class="cap"><h2>Advanced evidence</h2><span class="tag">optional</span></div>
+      <div class="cap"><h2 data-i18n="cardAdvanced">Advanced evidence</h2><span class="tag" data-i18n="tagOptional">optional</span></div>
       <div class="bd">
         <details>
-          <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--navy)">D7 Follow-through — from your prior meeting</summary>
-          <div class="hint" style="margin-top:8px">Longitudinal only — always shown separately and <b>never</b> weighted into the MPI. Leave blank if you didn't track a prior meeting.</div>
+          <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--navy)" data-i18n="summaryD7">D7 Follow-through — from your prior meeting</summary>
+          <div class="hint" style="margin-top:8px" data-i18n-html="hintD7">Longitudinal only — always shown separately and <b>never</b> weighted into the MPI. Leave blank if you didn't track a prior meeting.</div>
           <div class="frow" style="margin-top:10px">
-            <div><label for="fPriorDue">Prior actions due by now</label><input type="number" id="fPriorDue" min="0"></div>
-            <div><label for="fPriorClosed">…closed or updated</label><input type="number" id="fPriorClosed" min="0"></div>
+            <div><label for="fPriorDue" data-i18n="lblPriorDue">Prior actions due by now</label><input type="number" id="fPriorDue" min="0"></div>
+            <div><label for="fPriorClosed" data-i18n="lblPriorClosed">…closed or updated</label><input type="number" id="fPriorClosed" min="0"></div>
           </div>
           <div class="frow">
-            <div><label for="fPriorTopics">Prior unresolved topics</label><input type="number" id="fPriorTopics" min="0"></div>
-            <div><label for="fPriorRecur">…reappeared unresolved</label><input type="number" id="fPriorRecur" min="0"></div>
+            <div><label for="fPriorTopics" data-i18n="lblPriorTopics">Prior unresolved topics</label><input type="number" id="fPriorTopics" min="0"></div>
+            <div><label for="fPriorRecur" data-i18n="lblPriorRecur">…reappeared unresolved</label><input type="number" id="fPriorRecur" min="0"></div>
           </div>
         </details>
         <details style="margin-top:12px">
-          <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--navy)">From your recording or diarization pipeline</summary>
-          <div class="hint" style="margin-top:8px">Dead time, off-agenda time and interruptions can never be read from text alone (honest-measurement rules §4) — if you have them from an audio pipeline, enter them here to unlock those metrics. Leave blank otherwise; nothing is estimated.</div>
+          <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--navy)" data-i18n="summaryRecording">From your recording or diarization pipeline</summary>
+          <div class="hint" style="margin-top:8px" data-i18n-html="hintRecording">Dead time, off-agenda time and interruptions can never be read from text alone (honest-measurement rules §4) — if you have them from an audio pipeline, enter them here to unlock those metrics. Leave blank otherwise; nothing is estimated.</div>
           <div class="frow" style="margin-top:10px">
-            <div><label for="fDead">Dead time / silence (min)</label><input type="number" id="fDead" min="0" step="0.1"></div>
-            <div><label for="fOffAgenda">Off-agenda talk time (min)</label><input type="number" id="fOffAgenda" min="0" step="0.1"></div>
+            <div><label for="fDead" data-i18n="lblDead">Dead time / silence (min)</label><input type="number" id="fDead" min="0" step="0.1"></div>
+            <div><label for="fOffAgenda" data-i18n="lblOffAgenda">Off-agenda talk time (min)</label><input type="number" id="fOffAgenda" min="0" step="0.1"></div>
           </div>
           <div class="frow">
-            <div><label for="fTotalTalk">Total talk time, all speakers (min)</label><input type="number" id="fTotalTalk" min="0" step="0.1"></div>
-            <div><label for="fInterrupt">Interruptions per 10 min (overlaps &gt;2s)</label><input type="number" id="fInterrupt" min="0" step="0.1"></div>
+            <div><label for="fTotalTalk" data-i18n="lblTotalTalk">Total talk time, all speakers (min)</label><input type="number" id="fTotalTalk" min="0" step="0.1"></div>
+            <div><label for="fInterrupt" data-i18n="lblInterrupt">Interruptions per 10 min (overlaps &gt;2s)</label><input type="number" id="fInterrupt" min="0" step="0.1"></div>
           </div>
         </details>
       </div>
@@ -242,9 +263,9 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
   <!-- ============ DASHBOARD ============ -->
   <main class="dash" id="dash">
     <div class="empty" id="emptyState">
-      <div class="big">Paste artifacts, then press Analyze</div>
-      Agenda + transcript are enough for a first score. Minutes, chat and attendance each unlock further metrics.<br>
-      The report renders here: MPI gauge, six dimension meters, agenda coverage, presenters, participation, outcomes and flags — every figure with its evidence.
+      <div class="big" data-i18n="emptyBig">Paste artifacts, then press Analyze</div>
+      <span data-i18n-html="emptyBody">Agenda + transcript are enough for a first score. Minutes, chat and attendance each unlock further metrics.<br>
+      The report renders here: MPI gauge, six dimension meters, agenda coverage, presenters, participation, outcomes and flags — every figure with its evidence.</span>
     </div>
     <div id="report" style="display:none" tabindex="-1"></div>
   </main>
@@ -253,7 +274,7 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-size:11.5px}
 /* Single source for the build stamp shown in the header and the method
    footer -- the filename never changes between versions (reuse guide sec7
    / sec8), so this constant is the only reliable place to bump it. */
-const ENGINE_VERSION = "1.6";
+const ENGINE_VERSION = "2.0";
 const engineVerEl = document.getElementById("engineVerStamp");
 if (engineVerEl) engineVerEl.textContent = "engine v" + ENGINE_VERSION;
 
@@ -267,8 +288,329 @@ const CONFIG = {
            density:[2,12], feedback:[0,8], chat:[0,1], interrupt:[6,0.5] },
   mpiBands: [[85,"Highly Productive"],[70,"Productive"],[50,"Needs Improvement"],[0,"Ineffective"]]
 };
+/* label + one-line explanation for every scored metric, keyed so the same
+   text can later be looked up in another language without a second parallel
+   list of raw strings scattered across the metric-table construction. */
+const METRIC_META = {
+  coverage: { label:"Coverage rate", desc:"Share of agenda items that got real discussion (closed or otherwise substantive). Needs an agenda and a transcript; a 'not found' item still counts against it." },
+  timeAdh: { label:"Avg time adherence", desc:"How close each item's actual minutes ran to its planned minutes, averaged across located items. Closer to plan scores higher." },
+  seqAdherence: { label:"Sequence adherence", desc:"Share of items discussed in the same order they were planned. Reordering the agenda lowers this even if every item was covered." },
+  offAgendaM: { label:"Off-agenda ratio", desc:"Share of talk time spent on topics outside the agenda, by keyword proximity to agenda items (an approximation, not semantic understanding). Lower is better." },
+  startDelayM: { label:"Start delay", desc:"Minutes between the scheduled start time and the first timestamped utterance. Needs a scheduled start time and timestamps." },
+  overrun: { label:"Duration overrun", desc:"How far actual meeting length exceeded scheduled length, as a share of scheduled length. 0% means it ended on time or early." },
+  deadTime: { label:"Dead time ratio", desc:"Share of the meeting spent in silence or dead air. Can't be read from text — only scored when supplied via Advanced evidence from a recording." },
+  decLatency: { label:"Decision latency", desc:"Average minutes between an agenda item's discussion starting and a decision being reached within it. Needs timestamps and at least one decision tied to an item." },
+  allocAdherence: { label:"Allocation adherence", desc:"How close each presenter's actual speaking time ran to their item's planned minutes. A co-presented item is scored against the full planned time for each presenter." },
+  paceDev: { label:"Pace deviation", desc:"Average speaking pace in words per minute versus a comfortable presenting band. Too fast or too slow both score lower." },
+  fillerRate: { label:"Filler per 100 words", desc:"Filler words (um, uh, like, you know...) per 100 words spoken. English detection only — not scored on Arabic-majority speech." },
+  qaResp: { label:"Q&A responsiveness", desc:"Share of questions directed at a presenter that they answered. Needs speaker labels to pair questions with responders." },
+  respLatency: { label:"Response latency", desc:"Average seconds between a question and its answer. Needs second-level timestamps (HH:MM:SS) — minute-level stamps can't resolve this." },
+  monologue: { label:"Monologue ratio", desc:"Longest unbroken speaking run for a presenter as a share of their total speaking time. High values mean long uninterrupted stretches rather than back-and-forth." },
+  attendance: { label:"Attendance rate", desc:"Attendees present as a share of invitees. Needs an invitee count and either an attendance log or per-person presence data." },
+  retention: { label:"Avg retention", desc:"Average share of the meeting's duration that attendees stayed present for, from attendance log join/leave times." },
+  activeContrib: { label:"Active contributors", desc:"Share of attendees who spoke, asked a question, or otherwise contributed at least once. A silent attendee still counts in the denominator." },
+  speakingBalance: { label:"Speaking balance (1−Gini)", desc:"How evenly talk time was distributed across speakers (1 − Gini coefficient). 100% is perfectly even; lower means a few people dominated." },
+  interactionDensity: { label:"Interaction density", desc:"Conversational turns per 10 minutes. Higher means more back-and-forth exchange rather than long uninterrupted stretches." },
+  questionRes: { label:"Question resolution", desc:"Share of raised questions that were answered (deferred questions are tracked separately and don't count against this). Needs speaker labels." },
+  feedbackInst: { label:"Feedback instances", desc:"Count of detected praise/agreement phrases (great, good point, agreed...). Not Assessable — not a scored 0 — when the detector finds none at all." },
+  chatPerAttendee: { label:"Chat per attendee", desc:"Substantive chat messages (3+ words or a question) per attendee. Needs a pasted chat log." },
+  interruptRate: { label:"Interruptions per 10 min", desc:"Overlapping speech (>2s) per 10 minutes. Can't be read from text — only scored via Advanced evidence from a recording." },
+  decYield: { label:"Decision yield", desc:"Share of agenda items whose title implied a decision (go/no-go, approval, sign-off...) that actually reached one." },
+  actionComplete: { label:"Action completeness", desc:"Share of action items that have both an owner and a due date, versus all action items found." },
+  topicRes: { label:"Topic resolution (1−unresolved)", desc:"Share of located agenda items that closed with either a decision or an owned action, rather than being left open." },
+  momFidelity: { label:"MoM fidelity", desc:"How well the minutes of meeting capture what the transcript actually recorded as decisions and actions (precision and recall averaged). Needs a pasted MoM." },
+  priorClosure: { label:"Prior-action closure (info only)", desc:"Share of action items due by now, from a prior meeting, that have since closed. Longitudinal, informational only — weight 0, never enters the MPI." },
+  topicRecur: { label:"Topic recurrence, lower better (info only)", desc:"Share of prior meeting's unresolved topics that recurred in this one. Longitudinal, informational only — weight 0, never enters the MPI." },
+};
+const DIM_META = {
+  D1: "Whether the meeting covered its planned topics, in the planned order, without drifting off-agenda.",
+  D2: "Whether the meeting started, ran, and reached decisions within its scheduled time.",
+  D3: "How effectively presenters used their time and engaged the room.",
+  D4: "Who showed up, stayed, and actively took part.",
+  D5: "The quality of back-and-forth exchange — questions answered, feedback given, interruptions.",
+  D6: "Whether discussions actually produced decisions and owned action items.",
+};
+/* Arabic mirrors of METRIC_META/DIM_META, keyed identically -- resolved at
+   RENDER time (metaLabel/metaDesc/dimDesc below), never baked into the
+   metrics array at compute() time, so switching language re-renders the
+   same computed model with new text instead of needing a re-score. */
+const METRIC_META_AR = {
+  coverage: { label:"معدل التغطية", desc:"نسبة بنود الأجندة التي نوقشت فعلياً (مغلقة أو جوهرية). يحتاج أجندة ونصاً؛ البند «غير موجود» يُحتسب ضدها أيضاً." },
+  timeAdh: { label:"الالتزام بالوقت (متوسط)", desc:"مدى قرب الدقائق الفعلية لكل بند من الدقائق المخطط لها، بالمتوسط عبر البنود التي تم تحديد موقعها. الأقرب للخطة يسجل أعلى." },
+  seqAdherence: { label:"الالتزام بالترتيب", desc:"نسبة البنود التي نوقشت بنفس الترتيب المخطط له. إعادة ترتيب الأجندة تخفض هذا حتى لو غُطيت كل البنود." },
+  offAgendaM: { label:"نسبة الخروج عن الأجندة", desc:"نسبة وقت الحديث خارج مواضيع الأجندة، بالقرب الكلماتي من بنود الأجندة (تقريب، وليس فهماً دلالياً). الأقل أفضل." },
+  startDelayM: { label:"تأخر البدء", desc:"الدقائق بين وقت البدء المجدول وأول عبارة موقّتة. يحتاج وقت بدء مجدول وطوابع زمنية." },
+  overrun: { label:"تجاوز المدة", desc:"مدى تجاوز مدة الاجتماع الفعلية للمدة المجدولة، كنسبة من المدة المجدولة. 0% تعني الانتهاء في الوقت أو قبله." },
+  deadTime: { label:"نسبة الوقت الميت", desc:"نسبة الوقت المستغرق في صمت أو انقطاع. لا يمكن قراءتها من النص — تُحتسب فقط عند إدخالها عبر «أدلة متقدمة» من تسجيل." },
+  decLatency: { label:"زمن اتخاذ القرار", desc:"متوسط الدقائق بين بدء نقاش بند الأجندة والوصول إلى قرار ضمنه. يحتاج طوابع زمنية وقراراً واحداً مرتبطاً ببند على الأقل." },
+  allocAdherence: { label:"الالتزام بالتوزيع الزمني", desc:"مدى قرب الوقت الفعلي لكل متحدث من الدقائق المخطط لها لبنده. البند متعدد المقدمين يُقاس بكامل الوقت المخطط لكل مقدّم." },
+  paceDev: { label:"انحراف سرعة الحديث", desc:"متوسط سرعة الحديث بالكلمة/دقيقة مقابل نطاق مريح للعرض. السرعة الزائدة أو الناقصة كلتاهما تخفض النتيجة." },
+  fillerRate: { label:"كلمات الحشو لكل 100 كلمة", desc:"كلمات الحشو (مثل: يعني، آآ، صراحة) لكل 100 كلمة. الكشف بالإنجليزية فقط — لا يُحتسب في الكلام العربي الغالب." },
+  qaResp: { label:"استجابة الأسئلة", desc:"نسبة الأسئلة الموجهة لمقدّم أجاب عليها. يحتاج أسماء متحدثين لربط الأسئلة بمن أجاب." },
+  respLatency: { label:"زمن الاستجابة", desc:"متوسط الثواني بين السؤال والإجابة. يحتاج طوابع زمنية بدقة الثانية — الطوابع بدقة الدقيقة لا تكفي." },
+  monologue: { label:"نسبة الاستئثار بالحديث", desc:"أطول فترة حديث متواصلة لمقدّم كنسبة من إجمالي حديثه. القيم العالية تعني فترات طويلة بلا تبادل." },
+  attendance: { label:"معدل الحضور", desc:"الحاضرون كنسبة من المدعوين. يحتاج عدد المدعوين وسجل حضور أو بيانات حضور فردية." },
+  retention: { label:"معدل البقاء (متوسط)", desc:"متوسط نسبة مدة الاجتماع التي بقي خلالها الحاضرون، من أوقات الدخول/الخروج في سجل الحضور." },
+  activeContrib: { label:"المساهمون الفعّالون", desc:"نسبة الحاضرين الذين تحدثوا أو سألوا أو شاركوا مرة واحدة على الأقل. الحاضر الصامت يبقى محتسباً في المقام." },
+  speakingBalance: { label:"توازن الحديث (1−جيني)", desc:"مدى توزّع وقت الحديث بالتساوي بين المتحدثين (1 − معامل جيني). 100% يعني توزيعاً متساوياً تماماً؛ الأقل يعني هيمنة قلة." },
+  interactionDensity: { label:"كثافة التفاعل", desc:"عدد الأدوار الحوارية لكل 10 دقائق. الأعلى يعني تبادلاً أكثر بدلاً من فترات طويلة بلا انقطاع." },
+  questionRes: { label:"حل الأسئلة", desc:"نسبة الأسئلة المطروحة التي أُجيبت (الأسئلة المؤجلة تُحتسب بشكل منفصل ولا تُحسب ضدها). يحتاج أسماء متحدثين." },
+  feedbackInst: { label:"عبارات التقدير", desc:"عدد عبارات الثناء/الموافقة المكتشفة (ممتاز، فكرة جيدة...). غير قابل للتقييم — وليس صفراً — عند عدم اكتشاف أي عبارة." },
+  chatPerAttendee: { label:"رسائل الدردشة لكل حاضر", desc:"رسائل الدردشة الجوهرية (3+ كلمات أو سؤال) لكل حاضر. يحتاج سجل دردشة." },
+  interruptRate: { label:"المقاطعات لكل 10 دقائق", desc:"الحديث المتداخل (أكثر من ثانيتين) لكل 10 دقائق. لا يُقرأ من النص — يُحتسب فقط عبر «أدلة متقدمة» من تسجيل." },
+  decYield: { label:"معدل إنتاج القرارات", desc:"نسبة بنود الأجندة التي أوحى عنوانها بقرار (اعتماد، موافقة...) ووصلت فعلاً إلى قرار." },
+  actionComplete: { label:"اكتمال الإجراءات", desc:"نسبة الإجراءات التي لها مسؤول وتاريخ استحقاق، من إجمالي الإجراءات الموجودة." },
+  topicRes: { label:"حل المواضيع (1−غير المحلول)", desc:"نسبة بنود الأجندة التي أُغلقت بقرار أو إجراء مسؤول عنه، بدلاً من تركها مفتوحة." },
+  momFidelity: { label:"دقة محضر الاجتماع", desc:"مدى تطابق محضر الاجتماع مع ما سجله النص فعلياً من قرارات وإجراءات (متوسط الدقة والاستدعاء). يحتاج محضراً ملصقاً." },
+  priorClosure: { label:"إغلاق الإجراءات السابقة (للعلم فقط)", desc:"نسبة إجراءات مستحقة من اجتماع سابق أُغلقت منذ ذلك الحين. طولي وللعلم فقط — وزنه صفر، لا يدخل في المؤشر." },
+  topicRecur: { label:"تكرار المواضيع، الأقل أفضل (للعلم فقط)", desc:"نسبة مواضيع غير محلولة من الاجتماع السابق تكررت في هذا الاجتماع. طولي وللعلم فقط — وزنه صفر، لا يدخل في المؤشر." },
+};
+const DIM_META_AR = {
+  D1: "هل غطى الاجتماع مواضيعه المخطط لها، بالترتيب المخطط، دون الانحراف عن الأجندة.",
+  D2: "هل بدأ الاجتماع وسار ووصل إلى قرارات ضمن وقته المجدول.",
+  D3: "مدى فعالية استخدام مقدمي العروض لوقتهم وإشراكهم للحضور.",
+  D4: "من حضر، وبقي، وشارك فعلياً.",
+  D5: "جودة التبادل الحواري — الأسئلة المجابة، الملاحظات، المقاطعات.",
+  D6: "هل أنتجت النقاشات فعلاً قرارات وإجراءات ذات مسؤولين.",
+};
+let CUR_LANG = "en";
+/* the last computed model, so switching language (or opening/closing the
+   participant drill-down) can re-render the SAME scored data with new
+   text instead of forcing a re-extract/re-score. Never persisted -- the
+   app has a hard no-storage guarantee, so language and any open
+   drill-down reset on reload by design (documented in the reuse guide). */
+let lastModel = null;
+const metaLabel = key => (CUR_LANG === "ar" ? METRIC_META_AR[key] : METRIC_META[key]).label;
+const metaDesc = key => (CUR_LANG === "ar" ? METRIC_META_AR[key] : METRIC_META[key]).desc;
+const dimName = d => CUR_LANG === "ar"
+  ? { D1:"الانضباط في الأجندة", D2:"كفاءة الوقت", D3:"فعالية مقدمي العروض", D4:"المشاركة", D5:"جودة التفاعل", D6:"النتائج" }[d]
+  : CONFIG.dims[d];
+const dimDesc = d => CUR_LANG === "ar" ? DIM_META_AR[d] : DIM_META[d];
+/* r.band/model.band stay the canonical English mpiBands value (scoring
+   code and tests key off it) -- this only maps that value to a display
+   string, same pattern as topicMatchLabel/qStatusLabel below. */
+const BAND_KEY = { "Highly Productive":"bandHighlyProductive", "Productive":"bandProductive", "Needs Improvement":"bandNeedsImprovement", "Ineffective":"bandIneffective" };
+const bandLabel = b => BAND_KEY[b] ? t(BAND_KEY[b]) : b;
+/* name-prefix tolerance shared by the Participation count columns and the
+   participant detail page -- matches how the app already tolerates minor
+   name-form differences elsewhere (byOwner, attendance-log lookups). */
+const sameName = (a, b) => a && b && (a.toLowerCase().startsWith(b.toLowerCase()) || b.toLowerCase().startsWith(a.toLowerCase()));
+/* Every user-facing string outside METRIC_META/DIM_META, keyed once and
+   looked up by t(key, vars). Static markup carries data-i18n="key" (or
+   data-i18n-ph="key" for a placeholder) and is walked by applyLang();
+   strings render() builds call t() directly. {name} in a value is
+   replaced from the `vars` object passed to t(). English values are
+   verbatim copies of the original hardcoded strings, so CUR_LANG==="en"
+   is byte-identical to pre-i18n output. */
+const STR = {
+  hdSub: { en:"Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere", ar:"إطار تقييم أداء الاجتماعات v1.0 · نسخة غير متصلة · كل شيء يعمل على هذا الجهاز، لا شيء يُرسل لأي مكان" },
+  runReady: { en:"offline-ready", ar:"جاهز دون اتصال" },
+  cardMeeting: { en:"Meeting", ar:"الاجتماع" },
+  tagMetadata: { en:"metadata", ar:"بيانات وصفية" },
+  lblTitle: { en:"Title", ar:"العنوان" },
+  lblDate: { en:"Date", ar:"التاريخ" },
+  lblStart: { en:"Scheduled start (HH:MM)", ar:"وقت البدء المجدول (HH:MM)" },
+  lblLength: { en:"Scheduled length (min)", ar:"المدة المجدولة (دقائق)" },
+  lblInvitees: { en:"Invitees (count)", ar:"عدد المدعوين" },
+  lblAnonymize: { en:"Anonymize participants", ar:"إخفاء أسماء المشاركين" },
+  phTitle: { en:"Weekly Product Review", ar:"مراجعة المنتج الأسبوعية" },
+  cardArtifacts: { en:"Artifacts", ar:"المواد" },
+  tagPasteText: { en:"paste text", ar:"الصق النص" },
+  lblAgenda: { en:"Agenda", ar:"الأجندة" },
+  reqRequired: { en:"REQUIRED", ar:"مطلوب" },
+  optOptional: { en:"OPTIONAL", ar:"اختياري" },
+  importFile: { en:"Import file", ar:"استيراد ملف" },
+  stEmpty: { en:"empty", ar:"فارغ" },
+  lblTranscript: { en:"Transcript", ar:"النص المكتوب" },
+  lblMinutes: { en:"Minutes (MoM)", ar:"محضر الاجتماع" },
+  lblChat: { en:"Chat log", ar:"سجل الدردشة" },
+  lblAttendance: { en:"Attendance log", ar:"سجل الحضور" },
+  btnExtract: { en:"Extract & score locally", ar:"استخراج وتقييم محلياً" },
+  btnSample: { en:"Sample", ar:"مثال" },
+  titleSample: { en:"Load a small sample meeting", ar:"تحميل اجتماع نموذجي صغير" },
+  ofhdAnyAI: { en:"Any-AI route", ar:"مسار أي أداة ذكاء اصطناعي" },
+  ofhdAnyAITag: { en:"for higher-quality extraction", ar:"لاستخراج أعلى جودة" },
+  ofsub: { en:"Copy the extraction prompt, run it in any AI chat when convenient, paste the JSON it returns, and score locally. Local extraction also drops its JSON below so you can inspect, correct, and re-score.",
+    ar:"انسخ نص الاستخراج، شغّله في أي محادثة ذكاء اصطناعي عند الحاجة، الصق الـ JSON الذي يعيده، ثم قيّم محلياً. الاستخراج المحلي يضع الـ JSON أيضاً أدناه لتفحصه وتصححه وتعيد التقييم." },
+  btnCopyPrompt: { en:"1 · Copy extraction prompt", ar:"1 · نسخ نص الاستخراج" },
+  btnSaveTxt: { en:"Save as .txt", ar:"حفظ كـ ‎.txt" },
+  titleSaveTxt: { en:"For very large transcripts — avoids clipboard limits", ar:"للنصوص الطويلة جداً — يتجنب حدود الحافظة" },
+  lblPasteJson: { en:"2 · Paste the JSON the AI returns", ar:"2 · الصق الـ JSON الذي يعيده الذكاء الاصطناعي" },
+  btnScoreJson: { en:"3 · Score pasted JSON", ar:"3 · تقييم الـ JSON الملصق" },
+  btnDownloadJson: { en:"Download extraction JSON", ar:"تنزيل JSON الاستخراج" },
+  hintExtract: { en:"<b>Extract &amp; score locally</b> runs the entire pipeline on this device — a deterministic rule engine reads the artifacts, then the same scoring code renders the dashboard. Nothing leaves this machine and no connection is ever used. Best with timestamped, speaker-labeled transcripts. For higher-quality extraction on messy input, use the <b>any-AI route</b> below in any chat tool you like, then paste its JSON back — scoring is identical. Missing evidence marks its dimensions <b>Not Assessable</b> — never estimated.",
+    ar:"<b>استخراج وتقييم محلياً</b> يشغّل خط المعالجة بالكامل على هذا الجهاز — محرك قواعد حتمي يقرأ المواد، ثم نفس كود التقييم يعرض لوحة النتائج. لا شيء يغادر هذا الجهاز ولا يُستخدم أي اتصال. يعمل بأفضل شكل مع نصوص موقّتة ومحددة المتحدثين. لاستخراج أعلى جودة من مدخلات غير منظمة، استخدم <b>مسار أي أداة ذكاء اصطناعي</b> أدناه في أي أداة محادثة، ثم الصق الـ JSON الناتج — التقييم مطابق. الأدلة الناقصة تجعل أبعادها <b>غير قابلة للتقييم</b> — لا تُقدَّر أبداً." },
+  cardAdvanced: { en:"Advanced evidence", ar:"أدلة متقدمة" },
+  tagOptional: { en:"optional", ar:"اختياري" },
+  summaryD7: { en:"D7 Follow-through — from your prior meeting", ar:"D7 المتابعة — من اجتماعكم السابق" },
+  hintD7: { en:"Longitudinal only — always shown separately and <b>never</b> weighted into the MPI. Leave blank if you didn't track a prior meeting.",
+    ar:"طولي فقط — يُعرض دائماً بشكل منفصل و<b>لا يدخل أبداً</b> في وزن المؤشر. اتركه فارغاً إن لم تتابعوا اجتماعاً سابقاً." },
+  lblPriorDue: { en:"Prior actions due by now", ar:"إجراءات سابقة مستحقة الآن" },
+  lblPriorClosed: { en:"…closed or updated", ar:"…أُغلقت أو حُدّثت" },
+  lblPriorTopics: { en:"Prior unresolved topics", ar:"مواضيع سابقة غير محلولة" },
+  lblPriorRecur: { en:"…reappeared unresolved", ar:"…ظهرت مجدداً دون حل" },
+  summaryRecording: { en:"From your recording or diarization pipeline", ar:"من تسجيلكم أو نظام تمييز المتحدثين" },
+  hintRecording: { en:"Dead time, off-agenda time and interruptions can never be read from text alone (honest-measurement rules §4) — if you have them from an audio pipeline, enter them here to unlock those metrics. Leave blank otherwise; nothing is estimated.",
+    ar:"الوقت الميت، ووقت الخروج عن الأجندة، والمقاطعات لا يمكن قراءتها من النص وحده (قواعد القياس الصادق §4) — إن كانت لديكم من مسار صوتي، أدخلوها هنا لفتح هذه المقاييس. اتركوها فارغة غير ذلك؛ لا شيء يُقدَّر." },
+  lblDead: { en:"Dead time / silence (min)", ar:"الوقت الميت / الصمت (دقائق)" },
+  lblOffAgenda: { en:"Off-agenda talk time (min)", ar:"وقت الحديث خارج الأجندة (دقائق)" },
+  lblTotalTalk: { en:"Total talk time, all speakers (min)", ar:"إجمالي وقت الحديث، كل المتحدثين (دقائق)" },
+  lblInterrupt: { en:"Interruptions per 10 min (overlaps &gt;2s)", ar:"المقاطعات لكل 10 دقائق (تداخل أكثر من ثانيتين)" },
+  emptyBig: { en:"Paste artifacts, then press Analyze", ar:"الصق المواد، ثم اضغط تحليل" },
+  emptyBody: { en:"Agenda + transcript are enough for a first score. Minutes, chat and attendance each unlock further metrics.<br>The report renders here: MPI gauge, six dimension meters, agenda coverage, presenters, participation, outcomes and flags — every figure with its evidence.",
+    ar:"الأجندة والنص المكتوب كافيان لأول تقييم. المحضر والدردشة والحضور كل منها يفتح مقاييس إضافية.<br>التقرير يُعرض هنا: مقياس المؤشر، ستة مقاييس للأبعاد، تغطية الأجندة، مقدمو العروض، المشاركة، النتائج والملاحظات — كل رقم مع دليله." },
+  phAgenda: { en:"1. KPI review — Sara — 10 min\n2. Roadmap update — Amir — 10 min\n…", ar:"1. مراجعة المؤشرات — سارة — 10 دقائق\n2. تحديث خارطة الطريق — أمير — 10 دقائق\n…" },
+  phTranscript: { en:"[00:04] Sara: Let's get started…\n(timestamps + speaker labels give the best coverage)", ar:"[00:04] سارة: لنبدأ…\n(الطوابع الزمنية وأسماء المتحدثين تعطي أفضل تغطية)" },
+  phMinutes: { en:"Decisions, action items as circulated…", ar:"القرارات والإجراءات كما عُممت…" },
+  phChat: { en:"10:12 Omar: what's the churn number?…", ar:"10:12 عمر: ما رقم التسرب؟…" },
+  phAttendance: { en:"Sara joined 10:00, left 11:07…", ar:"سارة انضمت 10:00، غادرت 11:07…" },
+  langPicker: { en:"EN", ar:"AR" },
+  errNeedTranscript: { en:"Local extraction needs at least the transcript (agenda strongly recommended for D1/D6).", ar:"الاستخراج المحلي يحتاج على الأقل النص المكتوب (يُنصح بشدة بإضافة الأجندة لأجل D1/D6)." },
+  errNeedJson: { en:"Paste the extraction JSON first (step 2).", ar:"الصق JSON الاستخراج أولاً (الخطوة 2)." },
+  errNeedArtifacts: { en:"Paste the agenda and transcript above first — the saved prompt embeds them.", ar:"الصق الأجندة والنص المكتوب أعلاه أولاً — النص المحفوظ يضمّنهما." },
+  stExtracting: { en:"extracting locally", ar:"جارٍ الاستخراج محلياً" },
+  stDoneLocal: { en:"done (local)", ar:"تم (محلي)" },
+  stDoneOffline: { en:"done (offline)", ar:"تم (دون اتصال)" },
+  stNotAssessable: { en:"not assessable", ar:"غير قابل للتقييم" },
+  stMPI: { en:"MPI {n}", ar:"المؤشر {n}" },
+  stError: { en:"error", ar:"خطأ" },
+  untitledMeeting: { en:"Untitled meeting", ar:"اجتماع بلا عنوان" },
+  notAssessableChip: { en:"Not assessable", ar:"غير قابل للتقييم" },
+  durationNA: { en:"duration n/a", ar:"المدة غير متاحة" },
+  minActualVsSched: { en:"{a} min actual vs {s} scheduled", ar:"{a} دقيقة فعلية مقابل {s} مجدولة" },
+  minScheduled: { en:"{s} min scheduled", ar:"{s} دقيقة مجدولة" },
+  attendeeCount: { en:"{n} attendee{s}", ar:"{n} حاضر" },
+  ofInvited: { en:" of {n} invited", ar:" من أصل {n} مدعو" },
+  dimAssessableLine: { en:"{a} of 6 dimensions assessable · {f} flags · extraction: {ts}, {sp}", ar:"{a} من 6 أبعاد قابلة للتقييم · {f} ملاحظات · الاستخراج: {ts}، {sp}" },
+  tsYes: { en:"timestamps ✓", ar:"طوابع زمنية ✓" },
+  tsNo: { en:"no timestamps", ar:"بدون طوابع زمنية" },
+  spYes: { en:"speakers ✓", ar:"متحدثون ✓" },
+  spNo: { en:"no speaker labels", ar:"بدون أسماء متحدثين" },
+  cardDimScores: { en:"Dimension scores", ar:"درجات الأبعاد" },
+  tagWeightedMPI: { en:"weighted → MPI", ar:"موزون ← المؤشر" },
+  naMissing: { en:"Not assessable — missing artifacts", ar:"غير قابل للتقييم — مواد ناقصة" },
+  cardMetricDetail: { en:"Metric detail", ar:"تفاصيل المقاييس" },
+  tagRawScore: { en:"raw value → normalized score", ar:"القيمة الخام ← الدرجة الموحدة" },
+  thDim: { en:"Dim", ar:"البعد" },
+  thMetric: { en:"Metric", ar:"المقياس" },
+  thRaw: { en:"Raw", ar:"القيمة الخام" },
+  thScore: { en:"Score", ar:"الدرجة" },
+  metricFoot: { en:"Counts are shown beside ratio metrics — tiny denominators (like 1/1) can legitimately score 0 or 100; judge them by the evidence size. “n/a” means the supplied artifacts genuinely can’t measure it. D7 rows are longitudinal and informational only — filled from the optional “Advanced evidence” card, weight 0, and never enter the dimension averages or the MPI.",
+    ar:"الأعداد تُعرض بجانب مقاييس النسب — المقامات الصغيرة جداً (مثل 1/1) يمكن أن تسجل 0 أو 100 بشكل مشروع؛ احكموا عليها بحجم الدليل. «غير متاح» تعني أن المواد المُقدَّمة لا يمكنها فعلاً قياس ذلك. صفوف D7 طولية وللعلم فقط — تُملأ من بطاقة «أدلة متقدمة» الاختيارية، وزنها صفر، ولا تدخل أبداً في متوسطات الأبعاد أو المؤشر." },
+  cardAgenda: { en:"Agenda coverage map", ar:"خريطة تغطية الأجندة" },
+  tagPlannedActual: { en:"planned vs actual", ar:"المخطط مقابل الفعلي" },
+  thItem: { en:"Item", ar:"البند" },
+  thPresenter: { en:"Presenter", ar:"المقدّم" },
+  thMinPA: { en:"Min p→a", ar:"الدقائق م←ف" },
+  thOrderPA: { en:"Order p→a", ar:"الترتيب م←ف" },
+  thDecision: { en:"Decision", ar:"القرار" },
+  thStatus: { en:"Status", ar:"الحالة" },
+  decMade: { en:"made", ar:"اتُّخذ" },
+  decExpectedNotMade: { en:"expected, not made", ar:"متوقَّع، لم يُتَّخذ" },
+  statOpen: { en:"open", ar:"مفتوح" },
+  statClosed: { en:"closed", ar:"مغلق" },
+  statSkipped: { en:"skipped", ar:"تم تجاوزه" },
+  statNotFound: { en:"not found", ar:"غير موجود" },
+  noAgendaExtracted: { en:"No agenda items extracted", ar:"لم تُستخرج بنود أجندة" },
+  cardPresenters: { en:"Presenters", ar:"مقدمو العروض" },
+  tagFeedsD3: { en:"feeds D3", ar:"يغذي D3" },
+  thWPM: { en:"WPM", ar:"كلمة/دقيقة" },
+  thFiller: { en:"Filler/100", ar:"حشو/100" },
+  thQA: { en:"Q&A", ar:"سؤال وجواب" },
+  thLatency: { en:"Latency", ar:"زمن الاستجابة" },
+  thMonologue: { en:"Monologue", ar:"استئثار" },
+  noPresentersExtracted: { en:"No presenters extracted", ar:"لم يُستخرج مقدمو عروض" },
+  cardParticipation: { en:"Participation", ar:"المشاركة" },
+  tagTalkShare: { en:"talk share · contribution mix", ar:"نسبة الحديث · مزيج المساهمة" },
+  tagTalkShareAnon: { en:"talk share · contribution mix · anonymized", ar:"نسبة الحديث · مزيج المساهمة · مُخفى الهوية" },
+  thAttendee: { en:"Attendee", ar:"الحاضر" },
+  thTalkShare: { en:"Talk share", ar:"نسبة الحديث" },
+  thContributions: { en:"Contributions", ar:"المساهمات" },
+  noParticipantsExtracted: { en:"No participants extracted", ar:"لم يُستخرج مشاركون" },
+  thQCount: { en:"Q", ar:"أسئلة" },
+  thDCount: { en:"D", ar:"قرارات" },
+  thACount: { en:"A", ar:"إجراءات" },
+  btnParticipantDetail: { en:"Full detail for this participant", ar:"التفاصيل الكاملة لهذا المشارك" },
+  btnBack: { en:"← Back to report", ar:"→ العودة إلى التقرير" },
+  cardParticipantDetail: { en:"Participant detail", ar:"تفاصيل المشارك" },
+  pdTalkShare: { en:"Talk share", ar:"نسبة الحديث" },
+  pdTalkMinutes: { en:"Talk minutes", ar:"دقائق الحديث" },
+  pdPresent: { en:"Present", ar:"حاضر" },
+  pdAbsent: { en:"Absent / not marked present", ar:"غائب / لم يُسجَّل حضوره" },
+  pdPresenterFor: { en:"Presenter for", ar:"مقدّم عرض لبند" },
+  secQuestionsAsked: { en:"Questions asked", ar:"الأسئلة المطروحة" },
+  secAnswersGiven: { en:"Answers given", ar:"الإجابات المُقدَّمة" },
+  secDecisionsStated: { en:"Decisions stated", ar:"القرارات المُعلَنة" },
+  secActionsOwned: { en:"Actions owned", ar:"الإجراءات المسؤول عنها" },
+  secChatMessages: { en:"Chat messages", ar:"رسائل الدردشة" },
+  secOffAgenda: { en:"Off-agenda contributions", ar:"مساهمات خارج الأجندة" },
+  secTimeline: { en:"Timeline", ar:"الخط الزمني" },
+  pdNone: { en:"None recorded for this participant.", ar:"لا يوجد شيء مسجَّل لهذا المشارك." },
+  pdNoTimeline: { en:"No timestamped timeline available (transcript has no timestamps, or this participant's utterances weren't captured individually).", ar:"لا يتوفر خط زمني موقّت (النص بلا طوابع زمنية، أو لم تُلتقط عبارات هذا المشارك فردياً)." },
+  pdTimelineCapped: { en:"Showing the first {n} utterances; the transcript continues beyond this.", ar:"عرض أول {n} عبارة؛ يستمر النص المكتوب بعد ذلك." },
+  pdNoChatLog: { en:"No chat log provided.", ar:"لم يُقدَّم سجل دردشة." },
+  pdAnsweredFor: { en:"answered for {n}", ar:"أُجيب لصالح {n}" },
+  silentNote: { en:"{n} attendee{s} present with no recorded speech {v} not listed — {p} still count{c} in attendance rate, active contributors and speaking balance.",
+    ar:"{n} حاضر لم يُسجَّل له أي حديث لم يُدرَج في الجدول — يبقى محتسباً في معدل الحضور والمساهمين الفعّالين وتوازن الحديث." },
+  cardAttendeeQuestions: { en:"Attendee questions", ar:"أسئلة الحاضرين" },
+  tagByAsker: { en:"by asker", ar:"حسب السائل" },
+  tagByAskerAnon: { en:"by asker · anonymized", ar:"حسب السائل · مُخفى الهوية" },
+  naNoSpeakerQ: { en:"Not assessable — no speaker labels, so questions can't be attributed to an asker.", ar:"غير قابل للتقييم — لا توجد أسماء متحدثين، فلا يمكن نسبة الأسئلة لسائل." },
+  noQuestionsExtracted: { en:"No questions extracted.", ar:"لم تُستخرج أسئلة." },
+  questionCount: { en:"{n} question{s}", ar:"{n} سؤال" },
+  statusAnswered: { en:"answered", ar:"أُجيب عليه" },
+  statusDeferred: { en:"deferred", ar:"مؤجَّل" },
+  statusUnanswered: { en:"unanswered", ar:"دون إجابة" },
+  topicOnTopic: { en:"on topic", ar:"في الموضوع" },
+  topicNoMatch: { en:"no keyword match", ar:"لا تطابق كلمات مفتاحية" },
+  topicOtherItem: { en:"other item ({t})", ar:"بند آخر ({t})" },
+  cardDecisions: { en:"Decisions", ar:"القرارات" },
+  cardActionItems: { en:"Action items", ar:"الإجراءات" },
+  noneExtracted: { en:"None extracted", ar:"لم يُستخرج شيء" },
+  dueLabel: { en:" · due {d}", ar:" · الاستحقاق {d}" },
+  cardFlags: { en:"Flags", ar:"الملاحظات" },
+  tagDeterministic: { en:"deterministic checks", ar:"فحوصات حتمية" },
+  noFlagsRaised: { en:"No flags raised.", ar:"لا توجد ملاحظات." },
+  cardMethod: { en:"Method & configuration", ar:"المنهجية والإعدادات" },
+  tagPrintedAudit: { en:"printed for audit", ar:"مطبوع للمراجعة" },
+  btnPrint: { en:"Print / save as PDF", ar:"طباعة / حفظ كـ PDF" },
+  btnDownloadReport: { en:"Download report (.html)", ar:"تنزيل التقرير (‎.html)" },
+  bandHighlyProductive: { en:"Highly Productive", ar:"إنتاجية عالية" },
+  bandProductive: { en:"Productive", ar:"منتِج" },
+  bandNeedsImprovement: { en:"Needs Improvement", ar:"يحتاج تحسيناً" },
+  bandIneffective: { en:"Ineffective", ar:"غير فعّال" },
+  methodFoot: { en:"Engine v{v} — extraction: built-in local rule engine (fully offline), or any AI via the copy-prompt route — all scores computed on-device by deterministic code · normalization <code>clamp(100·(v−worst)/(best−worst))</code> · MPI re-weighted over assessable dimensions · Gini computed exactly on sorted talk minutes (the companion workbook uses a rank-based approximation that can overstate speaking balance when talk times tie — see docs/mpef-analyzer-reuse-guide.md) · sequence adherence is a planned-vs-actual position-match proxy for the framework's LCS measure · pace deviation is an average-WPM proxy for per-minute in-band share (both proxies match the companion workbook) · sentiment excluded · identical inputs + config ⇒ identical scores.",
+    ar:"المحرك v{v} — الاستخراج: محرك قواعد محلي مدمج (دون اتصال بالكامل)، أو أي ذكاء اصطناعي عبر مسار نسخ النص — كل الدرجات تُحسب على الجهاز بكود حتمي · التوحيد <code>clamp(100·(v−worst)/(best−worst))</code> · المؤشر يُعاد وزنه على الأبعاد القابلة للتقييم · جيني يُحسب تماماً على دقائق الحديث المرتبة (المصنّف المرافق يستخدم تقريباً قائماً على الرتبة قد يبالغ في توازن الحديث عند تعادل الأوقات — راجع docs/mpef-analyzer-reuse-guide.md) · الالتزام بالترتيب هو مقياس بديل لمطابقة الموقع المخطط مقابل الفعلي لقياس LCS في الإطار · انحراف السرعة هو مقياس بديل لمتوسط الكلمة/دقيقة لحصة النطاق لكل دقيقة (كلا البديلين يطابقان المصنّف المرافق) · المشاعر مستبعدة · نفس المدخلات + الإعدادات ⇐ نفس الدرجات." },
+};
+/* {name}-style interpolation from `vars`; falls back to English (and then
+   to the bare key) if a translation is somehow missing, so a gap in one
+   language degrades gracefully instead of rendering "undefined". */
+function t(key, vars){
+  const entry = STR[key];
+  let s = entry ? (entry[CUR_LANG] || entry.en) : key;
+  if (vars) for (const k in vars) s = s.split("{" + k + "}").join(vars[k]);
+  return s;
+}
+function applyLang(){
+  document.documentElement.lang = CUR_LANG;
+  document.documentElement.dir = CUR_LANG === "ar" ? "rtl" : "ltr";
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.getAttribute("data-i18n")); });
+  document.querySelectorAll("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.getAttribute("data-i18n-html")); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.getAttribute("data-i18n-ph")); });
+  document.querySelectorAll("[data-i18n-title]").forEach(el => { el.title = t(el.getAttribute("data-i18n-title")); });
+  const langBtn = $("langToggle"); if (langBtn) langBtn.textContent = CUR_LANG === "ar" ? "EN" : "العربية";
+  if (typeof lastModel !== "undefined" && lastModel) render(lastModel);
+}
 const $ = id => document.getElementById(id);
 const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* pure CSS/HTML info tooltip -- no JS listener, so it survives
+   downloadReportHtml()'s standalone export intact. Shown on hover/focus
+   (keyboard-reachable) and toggled by tap via the hidden checkbox (touch
+   devices have no hover). `id` only needs to be unique within one render;
+   the whole #report subtree is replaced wholesale on every render, so
+   reusing the same id scheme across renders never collides live. */
+const tipHTML = (id, desc) =>
+  `<span class="tip"><input type="checkbox" class="tipchk" id="${id}"><label for="${id}" class="tipicon" tabindex="0" aria-label="?">ⓘ</label><span class="tipbubble">${esc(desc)}</span></span>`;
 const isNum = v => typeof v === "number" && isFinite(v);
 const clamp = v => Math.max(0, Math.min(100, v));
 const norm = (v,k) => { const [w,b]=CONFIG.bands[k]; return clamp(100*(v-w)/(b-w)); };
@@ -287,7 +629,7 @@ ART.forEach(id => $(id).addEventListener("input", () => {
   st.classList.toggle("ok", len > 0);
 }));
 
-$("demoBtn").addEventListener("click", () => {
+function loadEnglishSample(){
   $("mTitle").value = "Weekly Product Review"; $("mDate").value = "2026-08-12";
   $("mStart").value = "10:00"; $("mSched").value = 60; $("mInv").value = 10;
   $("aAgenda").value = `1. KPI review — Sara — 10 min
@@ -322,6 +664,47 @@ Open: backend hiring loop fix (next week). Sales-deck impact — offline with ma
 10:41 Mei: can we see tooling breakdown?
 10:49 Omar: sheet link incoming`;
   $("aAtt").value = `Sara 10:00–11:07 · Amir 10:00–11:07 · Lina 10:00–11:07 · Omar 10:00–11:07 · Dana 10:00–11:07 · Karl 10:00–11:07 · Mei 10:12–11:07 · Tomás 10:27–11:07 (10 invited)`;
+}
+/* mirrors loadEnglishSample() item-for-item (same 6-item structure, same
+   decision/action/risk/deferred-question shape) so the Arabic capture path
+   (RX Arabic alternatives, arNorm, NAME_ARABIC) has an equally thorough,
+   demonstrable fixture -- not a token one-liner. */
+function loadArabicSample(){
+  $("mTitle").value = "مراجعة المنتج الأسبوعية"; $("mDate").value = "2026-08-12";
+  $("mStart").value = "10:00"; $("mSched").value = 60; $("mInv").value = 10;
+  $("aAgenda").value = `1. مراجعة المؤشرات — سارة — 10 دقائق
+2. تحديث خارطة الطريق — أمير — 10 دقائق
+3. قرار الإطلاق — لينا — 10 دقائق
+4. مراجعة الميزانية — عمر — 10 دقائق
+5. تحديث التوظيف — سارة — 10 دقائق
+6. أخرى — سارة — 10 دقائق`;
+  $("aTrans").value = `[10:04] سارة: عذراً على التأخير، نبدأ بمراجعة المؤشرات. التفعيل ارتفع 4 بالمئة أسبوعياً، ومعدل التسرب ثابت عند 2.1 بالمئة.
+[10:07] عمر: ما الذي يقود ارتفاع التفعيل هذا الأسبوع؟
+[10:08] سارة: قائمة التهيئة الجديدة، وبيانات الأفواج تظهر ذلك بوضوح شديد لجميع الأعضاء في الفريق.
+[10:16] أمير: تحديث خارطة الطريق. التزمنا هذا الربع بوضع اوفلاين للجوال، وتحديث الدخول الموحد، وتحليلات الإصدار الثاني. وضع الأوفلاين يدخل مرحلة التجربة الأسبوع القادم.
+[10:24] دانا: مخاطرة: محرك المزامنة ما زال يفشل على الشبكات الضعيفة أثناء الاختبار.
+[10:25] أمير: اتفقنا — نربط دخول الميزة بانخفاض نسبة الفشل تحت 2 بالمئة. سأتولى متابعة هذا الشرط بنفسي.
+[10:29] عمر: هل يمكن إطلاق تحليلات الإصدار الثاني بدون واجهة التصدير؟
+[10:30] أمير: نعم، التصدير يلحق بعد أسبوعين.
+[10:31] لينا: قرار إطلاق صفحة التسعير. القسم القانوني وافق، والتجارب تظهر ارتفاع التحويل 6 بالمئة بدون أي إشارة تسرب.
+[10:38] سارة: تم الاتفاق — سنطلق يوم الاثنين القادم. لينا مسؤولة عن قائمة الإطلاق، بحلول الجمعة.
+[10:40] عمر: مراجعة الميزانية — نحن أقل بنسبة 8 بالمئة على البنية التحتية، وأعلى بثلاثة آلاف على الأدوات؛ الصافي إيجابي. أقترح إعادة توزيع الفائض على خط بيانات الفريق.
+[10:48] سارة: اتفقنا، أعيدوا التوزيع. عمر سيتولى تحديث الجدول بحلول الأربعاء.
+[10:52] سارة: التوظيف — عرضان في فريق المنصة، تم قبول واحد. حلقة الواجهة الخلفية ما زالت بطيئة، وما زلنا نخسر مرشحين في مرحلة المراجع. سنؤجل معالجة هذه المشكلة إلى الأسبوع القادم.
+[10:57] كريم: سؤال واحد — هل يغير إطلاق التسعير من شرائح المبيعات؟
+[10:58] سارة: ملاحظة جيدة — سنأخذ هذا خارج الاجتماع مع فريق التسويق.
+[11:02] سارة: انتهى الوقت — نتجاوز بند أخرى. شكراً للجميع.`;
+  $("aMom").value = `القرارات: إطلاق صفحة التسعير يوم الاثنين؛ إعادة توزيع فائض الميزانية على خط البيانات.
+الإجراءات: لينا — قائمة الإطلاق (الجمعة). عمر — جدول الميزانية (الأربعاء). أمير — شرط بوابة تجربة الأوفلاين أقل من 2%.
+مفتوح: إصلاح حلقة التوظيف في الواجهة الخلفية (الأسبوع القادم). أثر شرائح المبيعات — خارج الاجتماع مع التسويق.`;
+  $("aChat").value = `10:12 دانا: رابط مخطط التفعيل من فضلك
+10:13 سارة: تم النشر في القناة
+10:33 كريم: +1 على إطلاق الاثنين
+10:49 عمر: رابط الجدول قادم`;
+  $("aAtt").value = `سارة 10:00-11:07 · أمير 10:00-11:07 · لينا 10:00-11:07 · عمر 10:00-11:07 · دانا 10:00-11:07 · كريم 10:00-11:07 (10 invited)`;
+}
+$("demoBtn").addEventListener("click", () => {
+  (typeof CUR_LANG !== "undefined" && CUR_LANG === "ar") ? loadArabicSample() : loadEnglishSample();
   ART.forEach(id => $(id).dispatchEvent(new Event("input")));
 });
 
@@ -375,7 +758,7 @@ function buildFullPrompt() {
     scheduled_minutes: +$("mSched").value || null, invitees: +$("mInv").value || null };
   return `You are the extraction stage of the MPEF meeting-scoring pipeline. Analyze the meeting artifacts below and reply with ONLY one JSON object (no markdown, no commentary) exactly matching:
 
-{"meeting":{"title":str|null,"date":str|null,"scheduled_minutes":num|null,"actual_minutes":num|null,"start_delay_minutes":num|null,"dead_time_minutes":num|null,"off_agenda_minutes":num|null,"total_talk_minutes":num|null,"avg_decision_latency_minutes":num|null,"invitees":num|null},"agenda_items":[{"title":str,"planned_minutes":num|null,"planned_order":num,"actual_minutes":num|null,"actual_order":num|null,"substantive":bool,"decision_expected":bool,"decision_made":bool,"closed":bool,"evidence":str|null,"owners":[str]|null,"located":bool}],"participants":[{"name":str,"present":bool,"minutes_present":num|null,"talk_minutes":num|null,"questions":num,"answers":num,"proposals":num,"risks":num,"info":num}],"presenters":[{"name":str,"planned_minutes":num|null,"actual_minutes":num|null,"words":num|null,"filler_words":num|null,"questions_received":num,"questions_answered":num,"median_response_latency_seconds":num|null,"longest_turn_minutes":num|null}],"interaction":{"questions_raised":num,"questions_answered":num,"questions_deferred":num,"questions":[{"text":str,"asker":str|null,"status":"answered"|"deferred"|"unanswered","responder":str|null,"evidence":str,"agenda_item":str|null,"context":[str]|null,"topic_match":"on topic"|"other item (ITEM_TITLE)"|"no keyword match"|null}]|null,"feedback_instances":num|null,"chat_substantive_messages":num|null,"interruptions_per_10min":num|null,"turns_per_10min":num|null},"outcomes":{"actions_total":num,"actions_with_owner_and_due":num,"transcript_items":num,"mom_items":num|null,"matched_items":num|null,"decisions":[{"text":str,"speaker":str|null,"time":str|null,"evidence":str,"agenda_item":str|null,"context":[str]|null,"basis":str|null}],"actions":[{"text":str,"owner":str|null,"due":str|null,"evidence":str}]},"quality":{"has_timestamps":bool,"has_speaker_labels":bool,"notes":[str]}}
+{"meeting":{"title":str|null,"date":str|null,"scheduled_minutes":num|null,"actual_minutes":num|null,"start_delay_minutes":num|null,"dead_time_minutes":num|null,"off_agenda_minutes":num|null,"total_talk_minutes":num|null,"avg_decision_latency_minutes":num|null,"invitees":num|null},"agenda_items":[{"title":str,"planned_minutes":num|null,"planned_order":num,"actual_minutes":num|null,"actual_order":num|null,"substantive":bool,"decision_expected":bool,"decision_made":bool,"closed":bool,"evidence":str|null,"owners":[str]|null,"located":bool}],"participants":[{"name":str,"present":bool,"minutes_present":num|null,"talk_minutes":num|null,"questions":num,"answers":num,"proposals":num,"risks":num,"info":num,"chat":[{"time":str|null,"text":str}]|null,"timeline":[{"time":str|null,"text":str,"agenda_item":str|null,"off_agenda":bool}]|null}],"presenters":[{"name":str,"planned_minutes":num|null,"actual_minutes":num|null,"words":num|null,"filler_words":num|null,"questions_received":num,"questions_answered":num,"median_response_latency_seconds":num|null,"longest_turn_minutes":num|null}],"interaction":{"questions_raised":num,"questions_answered":num,"questions_deferred":num,"questions":[{"text":str,"asker":str|null,"status":"answered"|"deferred"|"unanswered","responder":str|null,"evidence":str,"agenda_item":str|null,"context":[str]|null,"topic_match":"on topic"|"other item (ITEM_TITLE)"|"no keyword match"|null}]|null,"feedback_instances":num|null,"chat_substantive_messages":num|null,"interruptions_per_10min":num|null,"turns_per_10min":num|null},"outcomes":{"actions_total":num,"actions_with_owner_and_due":num,"transcript_items":num,"mom_items":num|null,"matched_items":num|null,"decisions":[{"text":str,"speaker":str|null,"time":str|null,"evidence":str,"agenda_item":str|null,"context":[str]|null,"basis":str|null}],"actions":[{"text":str,"owner":str|null,"due":str|null,"evidence":str}]},"quality":{"has_timestamps":bool,"has_speaker_labels":bool,"notes":[str]}}
 
 ${COMMON_RULES}
 - substantive = real discussion, not a passing mention. decision_expected = agenda wording implies a decision. closed = ended with a decision or an owned action.
@@ -384,7 +767,8 @@ ${COMMON_RULES}
 - decisions[].text = the full decision statement verbatim, not a summary or a clipped fragment. decisions[].speaker = whoever stated it, null if unclear. Only include an utterance as a decision if it states an outcome actually taken -- exclude questions ("should we approve this?"), negations ("we haven't agreed"), hypotheticals ("if we approved..."), unadopted proposals ("we should approve", "I suggest we ship it"), deferrals ("let's decide next week"), and bare assent with no stated outcome ("Agreed." alone). decisions[].time = a clock time or timestamp label if the transcript has one, else null. decisions[].agenda_item = the agenda item title this decision was made under, null if it falls outside every agenda item's discussion. decisions[].context = the 1-3 preceding lines plus the decision line, each as "Speaker: text", so the decision can be read in its surrounding exchange. decisions[].basis = one sentence on what qualified this as a real decision (the phrase that signaled it, and anything corroborating it, like a related action item or a matching line in the minutes) -- null if you can't articulate one.
 - questions[] = every question raised, each with its resolution status; use null for the whole array only if speaker labels can't be resolved. questions[].agenda_item = the agenda item being discussed when the question was asked, null if outside any item's discussion. questions[].context = the question plus the answering line if any, each as "Speaker: text". questions[].topic_match = "on topic" if the question's subject matches what was being discussed when it was asked; "other item (TITLE)" if it doesn't match its own discussion but clearly belongs to a different agenda item instead (name that item); "no keyword match" if you can't tell either way -- never assert "off topic", since that's a stronger claim than a text-only read can support. feedback_instances = null (not 0) if you found no praise/agreement phrases at all -- 0 means you counted zero real instances among ones you could positively identify, which should be rare; when genuinely unsure, prefer null.
 - transcript_items = decisions + actions found in the transcript; mom_items/matched_items only if minutes provided.
-- Caps: agenda_items <=12, participants <=12, presenters <=6, decisions <=20, actions <=8, questions <=24, notes <=6.
+- participants[].chat = that person's substantive chat messages (each {time, text}), null if no chat log was supplied. participants[].timeline = every utterance they spoke (each {time, text, agenda_item, off_agenda}), capped at 40 entries, null in pseudo mode (no real speaker labels). Both feed the participant detail view only -- neither affects scoring.
+- Caps: agenda_items <=12, participants <=12, presenters <=6, decisions <=20, actions <=8, questions <=24, notes <=6, participants[].timeline <=40.
 - User-supplied metadata (trust over inference): ${JSON.stringify(meta)}
 
 ${artifactBlock()}`;
@@ -421,7 +805,7 @@ function downloadText(name, text){
 $("savePromptBtn").addEventListener("click", () => {
   const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
   if (!$("aAgenda").value.trim() && !$("aTrans").value.trim()){
-    err.textContent = "Paste the agenda and transcript above first — the saved prompt embeds them.";
+    err.textContent = t("errNeedArtifacts");
     err.style.display = "block"; return;
   }
   downloadText("mpef-extraction-prompt.txt", buildFullPrompt());
@@ -429,14 +813,15 @@ $("savePromptBtn").addEventListener("click", () => {
 $("scoreJsonBtn").addEventListener("click", () => {
   const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
   const raw = $("pasteJson").value.trim();
-  if (!raw) { err.textContent = "Paste the extraction JSON first (step 2)."; err.style.display = "block"; return; }
+  if (!raw) { err.textContent = t("errNeedJson"); err.style.display = "block"; return; }
   try {
     const model = compute(tolerantParse(raw));
+    lastModel = model;
     render(model);
-    $("runState").textContent = "done (offline) · " + (isNum(model.mpi) ? "MPI " + Math.round(model.mpi) : "not assessable");
+    $("runState").textContent = t("stDoneOffline") + " · " + (isNum(model.mpi) ? t("stMPI", {n: Math.round(model.mpi)}) : t("stNotAssessable"));
   } catch (e) {
     err.textContent = e.message || String(e); err.style.display = "block";
-    $("runState").textContent = "error";
+    $("runState").textContent = t("stError");
   }
 });
 
@@ -487,33 +872,78 @@ function downloadReportHtml() {
 }
 
 /* ================= built-in local extraction engine (deterministic, offline) ================= */
+/* Arabic has no case, so "starts uppercase" (the Latin name guard) has no
+   equivalent -- "starts with an Arabic letter" is the closest analogue.
+   ء-ي covers the core alphabet + hamza forms, ٮ-ۓ the
+   extended letters used in Persian/Urdu-influenced spellings (گ ژ ...), and
+   ݐ-ݿ the Arabic Supplement block; ـ (tatweel) is allowed only
+   mid-word, matching how apostrophes are allowed mid-word in NAME_LATIN. */
+const AR_LETTER = "\\u0621-\\u064A\\u066E-\\u06D3\\u0750-\\u077F";
+const NAME_LATIN = "[A-Z\\u00C0-\\u00DE][\\w'\\u2019\\u00C0-\\u00FF.-]*(?:\\s[A-Z\\u00C0-\\u00DE][\\w'\\u2019\\u00C0-\\u00FF.-]*){0,2}";
+const NAME_ARABIC = "[" + AR_LETTER + "][" + AR_LETTER + "\\u0640'\\u2019]*(?:\\s[" + AR_LETTER + "][" + AR_LETTER + "\\u0640'\\u2019]*){0,2}";
+const NAME_ANY = "(?:" + NAME_LATIN + "|" + NAME_ARABIC + ")";
+/* JS \b is defined relative to \w, which is ASCII-only -- it silently
+   never matches around Arabic letters (confirmed: /\bقرار\b/ fails on
+   "تم قرار مهم" even though the plain substring is right there). AB/AE are
+   an Arabic-aware substitute using lookaround instead of \w-relative \b,
+   so every Arabic alternative below is wrapped in these instead of \b. */
+const AB = "(?<![" + AR_LETTER + "\\u0660-\\u0669])";
+const AE = "(?![" + AR_LETTER + "\\u0660-\\u0669])";
+/* joins Arabic terms/phrases into one AB/AE-bounded alternation group,
+   for splicing into a `new RegExp(source)` alongside a Latin pattern's
+   `.source` -- keeps every RX entry a single combined pattern so a mixed
+   Arabic+English utterance is matched by whichever alternative fires. */
+const arb = (...terms) => AB + "(?:" + terms.join("|") + ")" + AE;
+
 const RX = {
-  decide: /\bdecision[:\s]|\bdecided\b|\bwe (?:go|will go|are going)\b|\bapproved?\b|\bagreed\b|\bgo(?:ing)? live\b|\bship it\b|\bgreen-?light/i,
-  decExp: /go\/?no-?go|decision|approve|approval|sign-?off|choose|select|vote|prioriti[sz]e/i,
-  action: /\b([A-ZÀ-Þ][\w'’-]+)\s+(?:to|will|owns?|takes?|is going to)\s+([^.;!?]{4,80})/g,
-  due: /\b(?:by|due|before|until)\s+((?:next\s+)?(?:mon|tues|wednes|thurs|fri|satur|sun)day|tomorrow|today|next week|end of (?:day|week|month)|eo[dwm]|\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?)/i,
-  defer: /\boffline\b|\bpark(?:ing|ed)?\b|\bdefer/i,
-  propose: /\bpropos|\bsuggest|\bwe should\b|\bhow about\b|\brecommend|\blet'?s\b/i,
-  decNeg: /\b(?:(?:have|has|had|do|does|did|is|was|were|are|will|can|could|would|should)\s+not|haven't|hasn't|hadn't|didn't|doesn't|don't|isn't|wasn't|weren't|aren't|won't|can't|couldn't|wouldn't|shouldn't)\b[^.!?]{0,25}\b(?:decid\w*|agree\w*|approv\w*|go(?:ing)?\s+live|ship(?:ping)?|green-?light)\b/i,
-  decNoOutcome: /\bno\s+(?:decision|agreement|consensus)\b/i,
-  decHypo: /\b(?:if|assuming|suppose|supposing|hypothetically|in case)\b/i,
-  decProposed: /\b(?:we should|you should|i suggest|i propose|how about|what if|maybe we should|might want to|should we|could we)\b/i,
-  decDeferLater: /\b(?:decide|deciding|discuss|revisit|review|finalize|confirm)\w*\b[^.!?]{0,25}\b(?:next\s+(?:week|month|meeting|sprint|quarter)|later this week|down the road|another time)\b/i,
-  risk: /\brisks?\b|\bconcern|\bworr(?:y|ied)|\bblocker|\bissue\b|\bfail(?:s|ing|ure)?\b|\bslip(?:ping|s)?\b/i,
-  feedback: /\bgreat\b|\bgood (?:point|catch|work|call)|\bnice\b|\bwell done\b|\bhelpful\b|\blove (?:it|this)\b|\+1\b|\bagree\b|\bmakes sense\b/i,
+  decide: new RegExp("\\bdecision[:\\s]|\\bdecided\\b|\\bwe (?:go|will go|are going)\\b|\\bapproved?\\b|\\bagreed\\b|\\bgo(?:ing)? live\\b|\\bship it\\b|\\bgreen-?light|"
+    + arb("تم\\s+الاتفاق", "اتفقنا", "قررنا", "تمت\\s+الموافقة", "نعتمد", "معتمد", "سنطلق", "بالموافقة", "تم\\s+اعتماد"), "i"),
+  decExp: new RegExp("go\\/?no-?go|decision|approve|approval|sign-?off|choose|select|vote|prioriti[sz]e|"
+    + arb("قرار", "موافقة", "اعتماد", "تصويت", "اختيار"), "i"),
+  action: new RegExp("\\b([A-ZÀ-Þ][\\w'’-]+)\\s+(?:to|will|owns?|takes?|is going to)\\s+([^.;!?؟؛]{4,80})|"
+    + "(" + NAME_ARABIC + ")\\s*" + AB + "(?:سيقوم|سيتولى|ستقوم|ستتولى|مسؤول عن|مسؤولة عن|عليه أن|عليها أن)" + AE + "\\s*([^.;!?؟؛]{4,80})", "g"),
+  due: new RegExp("\\b(?:by|due|before|until)\\s+((?:next\\s+)?(?:mon|tues|wednes|thurs|fri|satur|sun)day|tomorrow|today|next week|end of (?:day|week|month)|eo[dwm]|\\d{1,2}[\\/.-]\\d{1,2}(?:[\\/.-]\\d{2,4})?)|"
+    + AB + "(?:بحلول|قبل)" + AE + "\\s*(الاثنين|الثلاثاء|الأربعاء|الخميس|الجمعة|السبت|الأحد|غدا[ً]?|اليوم|الأسبوع القادم|نهاية (?:اليوم|الأسبوع|الشهر))", "i"),
+  defer: new RegExp("\\boffline\\b|\\bpark(?:ing|ed)?\\b|\\bdefer|" + arb("نؤجل", "تأجيل", "لاحقاً", "لاحقا", "خارج الاجتماع"), "i"),
+  propose: new RegExp("\\bpropos|\\bsuggest|\\bwe should\\b|\\bhow about\\b|\\brecommend|\\blet'?s\\b|" + arb("أقترح", "اقترح", "نقترح", "نوصي", "ماذا لو", "من الأفضل"), "i"),
+  decNeg: new RegExp("\\b(?:(?:have|has|had|do|does|did|is|was|were|are|will|can|could|would|should)\\s+not|haven't|hasn't|hadn't|didn't|doesn't|don't|isn't|wasn't|weren't|aren't|won't|can't|couldn't|wouldn't|shouldn't)\\b[^.!?؟؛]{0,25}\\b(?:decid\\w*|agree\\w*|approv\\w*|go(?:ing)?\\s+live|ship(?:ping)?|green-?light)\\b|"
+    + arb("لم نتفق", "لم يتفق", "لم نقرر", "لم يتم الاتفاق", "لم تتم الموافقة", "غير معتمد", "غير موافق عليه"), "i"),
+  decNoOutcome: new RegExp("\\bno\\s+(?:decision|agreement|consensus)\\b|" + arb("لا يوجد قرار", "لا يوجد اتفاق", "بدون قرار"), "i"),
+  decHypo: new RegExp("\\b(?:if|assuming|suppose|supposing|hypothetically|in case)\\b|" + arb("إذا", "اذا", "لو", "بافتراض"), "i"),
+  decProposed: new RegExp("\\b(?:we should|you should|i suggest|i propose|how about|what if|maybe we should|might want to|should we|could we)\\b|"
+    + arb("يجب أن", "يجب ان", "من الأفضل أن", "ماذا لو", "أقترح أن", "اقترح أن", "يفضل أن"), "i"),
+  decDeferLater: new RegExp("\\b(?:decide|deciding|discuss|revisit|review|finalize|confirm)\\w*\\b[^.!?؟؛]{0,25}\\b(?:next\\s+(?:week|month|meeting|sprint|quarter)|later this week|down the road|another time)\\b|"
+    + AB + "(?:نقرر|سنقرر|سنناقش|سنراجع|سنعتمد)" + AE + "[^.!?؟؛]{0,25}" + arb("الأسبوع القادم", "الاجتماع القادم", "لاحقاً", "لاحقا", "خارج الاجتماع"), "i"),
+  risk: new RegExp("\\brisks?\\b|\\bconcern|\\bworr(?:y|ied)|\\bblocker|\\bissue\\b|\\bfail(?:s|ing|ure)?\\b|\\bslip(?:ping|s)?\\b|"
+    + arb("مخاطرة", "مخاطر", "خطر", "مشكلة", "عائق", "معوق", "قلق", "قلقون", "تحدي"), "i"),
+  feedback: new RegExp("\\bgreat\\b|\\bgood (?:point|catch|work|call)|\\bnice\\b|\\bwell done\\b|\\bhelpful\\b|\\blove (?:it|this)\\b|\\+1\\b|\\bagree\\b|\\bmakes sense\\b|"
+    + arb("ممتاز", "أحسنت", "احسنت", "عمل رائع", "رائع", "فكرة جيدة", "جيد جداً", "موافق", "منطقي"), "i"),
   filler: /\b(?:um+|uh+|erm|like|you know|kind of|sort of|basically|actually|i mean|literally)\b/gi,
 };
-const NOTNAME = new Set(["decision","decisions","action","actions","note","notes","risk","risks","agenda","update","summary","question","questions","answer","answers","topic","item","reminder","warning","info","todo","fyi","minutes","chat","next","open","key"]);
+const NOTNAME = new Set(["decision","decisions","action","actions","note","notes","risk","risks","agenda","update","summary","question","questions","answer","answers","topic","item","reminder","warning","info","todo","fyi","minutes","chat","next","open","key",
+  "قرار","قرارات","إجراء","اجراء","إجراءات","اجراءات","ملاحظة","ملاحظات","مخاطر","خطر","أجندة","اجندة","جدول","تحديث","ملخص","سؤال","أسئلة","اسئلة","إجابة","اجابة","موضوع","تذكير","تنبيه","معلومة","دردشة","التالي","مفتوح"]);
 const isName = s => !NOTNAME.has(String(s).trim().split(/\s+/)[0].toLowerCase());
-const STOPW = new Set(["the","and","for","with","from","this","that","update","review","check","item","items","misc","other","about","into"]);
+const STOPW = new Set(["the","and","for","with","from","this","that","update","review","check","item","items","misc","other","about","into",
+  "من","في","على","إلى","الى","عن","مع","هذا","هذه","التي","الذي","هل","أن","ان","كان","قد","كل","بين","خلال","أو","او","ثم","كما"]);
 const words = t => (t.trim().match(/\S+/g) || []).length;
 const median = a => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y); const m=Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
-function parseClockMin(s){ const m = String(s||"").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(!m) return null;
+function parseClockMin(s){ const m = String(arDigits(s)||"").match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(!m) return null;
   return (+m[1])*60 + (+m[2]) + (m[3] ? (+m[3])/60 : 0); }
+/* Arabic-Indic (٠-٩) and Extended Arabic-Indic/Persian (۰-۹) digits ->
+   ASCII, so timestamps and durations written in either script parse the
+   same as Latin digits everywhere downstream. Non-digit characters pass
+   through unchanged. */
+function arDigits(s){
+  if (!s) return s;
+  return String(s).replace(/[٠-٩۰-۹]/g, d => {
+    const code = d.charCodeAt(0);
+    return String(code >= 0x6F0 ? code - 0x6F0 : code - 0x660);
+  });
+}
 
 /* normalize WebVTT / SRT / Teams-export transcripts into "[time] Name: text" lines */
 function normalizeTranscript(raw){
-  const NAME = "[A-Z\u00C0-\u00DE][\\w'\u2019\u00C0-\u00FF.-]*(?:\\s[A-Z\u00C0-\u00DE][\\w'\u2019\u00C0-\u00FF.-]*){0,2}";
+  const NAME = NAME_ANY;
   const looksExport = /-->|<v\s|^WEBVTT/m.test(raw) ||
     new RegExp("^\\s*" + NAME + "\\s+\\d{1,2}:\\d{2}(?::\\d{2})?\\s*$", "m").test(raw);
   if (!looksExport) return { text: raw, fmt: null };
@@ -546,13 +976,13 @@ function normalizeTranscript(raw){
 }
 function lxParseTranscript(text){
   const uts = [];
-  const NAME = "[A-ZÀ-Þ][\\w'’À-ÿ.-]*(?:\\s[A-ZÀ-Þ][\\w'’À-ÿ.-]*){0,2}";
-  const reA = new RegExp("^[\\[\\(]?(\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]?\\s+(" + NAME + ")\\s*:\\s*(.+)$");
-  const reB = new RegExp("^(" + NAME + ")\\s*[\\[\\(](\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]\\s*:?\\s*(.+)$");
-  const reC = new RegExp("^(" + NAME + ")\\s*:\\s*(.+)$");
+  const NAME = NAME_ANY;
+  const reA = new RegExp("^[\\[\\(]?(\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]?\\s+(" + NAME + ")\\s*[:：]\\s*(.+)$");
+  const reB = new RegExp("^(" + NAME + ")\\s*[\\[\\(](\\d{1,2}:\\d{2}(?::\\d{2})?)[\\]\\)]\\s*[:：]?\\s*(.+)$");
+  const reC = new RegExp("^(" + NAME + ")\\s*[:：]\\s*(.+)$");
   const reT = /^[\[\(]?(\d{1,2}:\d{2}(?::\d{2})?)[\]\)]?\s*(.*)$/;
   text.split(/\r?\n/).forEach((raw, li) => {
-    const line = raw.trim(); if(!line) return;
+    const line = arDigits(raw.trim()); if(!line) return;
     let m;
     if ((m = line.match(reA)) && isName(m[2])) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:m[2], tx:m[3], li}); return; }
     if ((m = line.match(reB)) && isName(m[1])) { uts.push({t:parseClockMin(m[2]), ck:m[2], sp:m[1], tx:m[3], li}); return; }
@@ -565,9 +995,9 @@ function lxParseTranscript(text){
 function lxParseAgenda(text){
   const items = []; let order = 1;
   for (const raw of text.split(/\r?\n/)){
-    let line = raw.trim(); if(!line) continue;
+    let line = arDigits(raw.trim()); if(!line) continue;
     line = line.replace(/^\d+[\.\)]\s*/,"").replace(/^[-*•·]\s*/,"");
-    const dur = (line.match(/(\d+)\s*(?:min|minutes?|m\b)/i) || [])[1];
+    const dur = (line.match(/(\d+)\s*(?:min|minutes?|m\b|دقيقة|دقائق|د\b)/i) || [])[1];
     const parts = line.split(/\s+[—–-]\s+/);
     const title = parts[0].replace(/\(.*?\)/g,"").trim();
     /* an owner segment may list more than one presenter, e.g. "Sara & Amir"
@@ -581,8 +1011,8 @@ function lxParseAgenda(text){
     for (const seg of parts.slice(1)){
       const q = seg.trim();
       if (!q || /\d/.test(q)) continue;
-      const names = q.split(/\s*(?:,|&|\+|\band\b)\s*/i).map(n => n.trim()).filter(Boolean);
-      const valid = names.filter(n => /^[A-ZÀ-Þ]/.test(n) && n.split(/\s+/).length <= 3);
+      const names = q.split(/\s*(?:,|،|&|\+|\band\b|\sو\s)\s*/i).map(n => n.trim()).filter(Boolean);
+      const valid = names.filter(n => new RegExp("^(?:[A-ZÀ-Þ]|[" + AR_LETTER + "])").test(n) && n.split(/\s+/).length <= 3);
       if (valid.length && valid.length === names.length) { owners = valid; break; }
     }
     if (title) items.push({ title, owners, owner: owners[0] || null,
@@ -590,8 +1020,9 @@ function lxParseAgenda(text){
   }
   return items;
 }
+const TOKEN_CLASS = "a-zà-ÿ" + AR_LETTER + "0-9\\/-";
 function lxKeywords(title){
-  const toks = title.toLowerCase().split(/[^a-zà-ÿ0-9\/-]+/).filter(w => w.length >= 3);
+  const toks = title.toLowerCase().split(new RegExp("[^" + TOKEN_CLASS + "]+")).filter(w => w.length >= 3);
   const kw = toks.filter(w => !STOPW.has(w));
   return kw.length ? kw : toks;
 }
@@ -608,6 +1039,27 @@ function lxStem(w){
     if (w.length - s.length >= 3 && w.endsWith(s) && !(s === "s" && w.endsWith("ss"))) return w.slice(0, -s.length);
   return w;
 }
+/* Arabic equivalent of lxStem -- same conservative posture (never below a
+   3-char stem, no attempt at a real morphological analyzer): fold letter
+   variants that are spelling noise rather than meaning (alef forms, teh
+   marbuta, alef maqsura), drop tatweel and diacritics, then strip the
+   definite article and the handful of most common suffixes so e.g.
+   المؤشرات / مؤشرات / مؤشراتها unify. */
+function arNorm(w){
+  let s = w.replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
+    .replace(/ـ/g, "").replace(/[ً-ْٰ]/g, "");
+  const PRE = ["وال", "بال", "كال", "فال", "ال"];
+  for (const p of PRE) if (s.length - p.length >= 3 && s.startsWith(p)) { s = s.slice(p.length); break; }
+  const SUF = ["يات", "ات", "ون", "ين", "ها", "هم", "كم", "نا", "تي", "ية"];
+  for (const suf of SUF) if (s.length - suf.length >= 3 && s.endsWith(suf)) { s = s.slice(0, -suf.length); break; }
+  return s;
+}
+const HAS_ARABIC = new RegExp("[" + AR_LETTER + "]");
+/* dispatch per token by script, so a single mixed-language utterance
+   stems its English words with lxStem and its Arabic words with arNorm --
+   that per-token dispatch is what makes code-switched transcripts work,
+   rather than picking one stemmer for the whole meeting. */
+const stemAny = w => HAS_ARABIC.test(w) ? arNorm(w) : lxStem(w);
 
 function localExtract(){
   /* notes carry a priority so the 6-slot cap (agent spec sec1/sec2) drops the
@@ -644,7 +1096,19 @@ function localExtract(){
   const hasTS = times.length >= uts.length * 0.5 && times.length >= 2;
   const t0 = hasTS ? times.reduce((a,b) => Math.min(a,b), Infinity) : null;
   const t1 = hasTS ? times.reduce((a,b) => Math.max(a,b), -Infinity) : null;
-  if (!hasTS) addNote("no timestamps — durations estimated from word counts at 150 wpm", 2);
+  const totalWords = spoken.reduce((a,u) => a + words(u.tx), 0);
+  /* filler-word detection (RX.filler) is an English word list; running it
+     against Arabic speech would silently undercount rather than genuinely
+     measure zero, which is exactly the false-zero honesty gate exists to
+     prevent. Detect script mix once for the whole transcript rather than
+     per presenter, so the disclosure reads as one meeting-level fact. */
+  const arWordChunks = spoken.reduce((a,u) => a + (u.tx.match(new RegExp("[" + AR_LETTER + "]+", "g")) || []).length, 0);
+  const majorityArabic = totalWords > 0 && arWordChunks / totalWords > 0.5;
+  const mixedScript = arWordChunks > 0 && arWordChunks / Math.max(totalWords,1) <= 0.5 && arWordChunks / Math.max(totalWords,1) > 0.05;
+  if (!hasTS) addNote("no timestamps — durations estimated from word counts at 150 wpm"
+    + ((majorityArabic || mixedScript) ? ", a constant derived from English speech and applied unchanged here" : ""), 2);
+  if (majorityArabic) addNote("Arabic transcript detected — filler-word detection is English-only, so filler per 100 words is not assessable here", 2);
+  else if (mixedScript) addNote("mixed Arabic/English transcript detected — decision, action, question and agenda-matching detectors run both languages; filler-word detection is English-only", 1);
 
   /* per-utterance floor time */
   if (isNum(manDead)) addNote("dead time manually supplied (advanced evidence) — not derived from text", 1);
@@ -661,7 +1125,6 @@ function localExtract(){
                        : spoken.reduce((a,u)=>a+u.dur,0);
 
   /* how much of the floor time is actually transcribed? */
-  const totalWords = spoken.reduce((a,u) => a + words(u.tx), 0);
   const floorTalk = spoken.reduce((a,u) => a + u.dur, 0);
   const density = (hasTS && floorTalk > 0) ? (totalWords / 150) / floorTalk : 1;
   const condensed = hasTS && density < 0.5;
@@ -673,7 +1136,7 @@ function localExtract(){
   /* classify utterances + Q&A pairing */
   const qEvents = [];
   spoken.forEach((u, i) => {
-    u.isQ = /\?/.test(u.tx);
+    u.isQ = /[?؟]/.test(u.tx);
     if (u.isQ) qEvents.push({ u, idx: i });
   });
   let answered = 0, deferred = 0; const latencies = [];
@@ -710,7 +1173,8 @@ function localExtract(){
     const stripped = tx
       .replace(/^decision[:\s]*/i, "")
       .replace(/\b(?:agreed?|approved?|sounds good|ok(?:ay)?|yes|yeah|great|perfect|good|fine|sure|absolutely|deal|noted|understood)\b/gi, "")
-      .replace(/[^a-zà-ÿ0-9\s]/gi, " ");
+      .replace(new RegExp(arb("موافق", "تمام", "حسناً", "حسنا", "ممتاز", "جيد"), "gi"), "")
+      .replace(new RegExp("[^a-zà-ÿ0-9\\s" + AR_LETTER + "]", "gi"), " ");
     return words(stripped) >= 3;
   }
   const decisions = [], actions = [];
@@ -720,9 +1184,11 @@ function localExtract(){
         time: u.ck || null, evidence: evi(u), _trigger: (u.tx.match(RX.decide)||[])[0] || null, _i: ui });
     let m; RX.action.lastIndex = 0;
     while ((m = RX.action.exec(u.tx)) && actions.length < 8){
-      const owner = speakers.find(s => s.toLowerCase().startsWith(m[1].toLowerCase())) || null;
-      const due = (u.tx.match(RX.due) || [])[1] || null;
-      if (owner || due) actions.push({ text: clip(m[2].trim(), 70), owner, due, evidence: evi(u), _i: ui });
+      const ownerName = m[1] || m[3], actionText = m[2] || m[4];
+      const owner = ownerName ? (speakers.find(s => s.toLowerCase().startsWith(ownerName.toLowerCase())) || null) : null;
+      const dueM = u.tx.match(RX.due);
+      const due = dueM ? (dueM[1] || dueM[2] || null) : null;
+      if (owner || due) actions.push({ text: clip(actionText.trim(), 70), owner, due, evidence: evi(u), _i: ui });
     }
   });
 
@@ -735,12 +1201,12 @@ function localExtract(){
      when two items compete for the same utterance, the better fit gets
      it instead of whichever item happens to be listed first. */
   const items = lxParseAgenda($("aAgenda").value);
-  const tokenize = t => t.toLowerCase().split(/[^a-zà-ÿ0-9\/-]+/).filter(w => w.length >= 3);
-  const spokenStems = spoken.map(u => new Set(tokenize(u.tx).map(lxStem)));
+  const tokenize = t => t.toLowerCase().split(new RegExp("[^" + TOKEN_CLASS + "]+")).filter(w => w.length >= 3);
+  const spokenStems = spoken.map(u => new Set(tokenize(u.tx).map(stemAny)));
   items.forEach(it => {
     const kws = lxKeywords(it.title);
     it._kws = kws;
-    it._kwStems = [...new Set(kws.map(lxStem))];
+    it._kwStems = [...new Set(kws.map(stemAny))];
     it._first = -1;
   });
   const candidates = [];
@@ -830,7 +1296,8 @@ function localExtract(){
      for anchoring) and each item's stemmed title keywords. */
   const QSTOP = new Set([...STOPW, "does","did","was","were","has","have","had","can","could",
     "would","will","shall","should","one","two","three","four","five","six","seven","eight",
-    "nine","ten","who","what","when","where","why","how","which","yes","not","are","is"]);
+    "nine","ten","who","what","when","where","why","how","which","yes","not","are","is",
+    "واحد","اثنان","اثنين","ثلاثة","أربعة","اربعة","خمسة","ماذا","متى","أين","اين","لماذا","كيف","أي","اي","نعم","لا","ليس","تم","ذلك"]);
   function topicMatchFor(idx, ownItem){
     const qStems = [...spokenStems[idx]].filter(s => !QSTOP.has(s));
     if (qStems.length && ownItem){
@@ -858,9 +1325,12 @@ function localExtract(){
   const allAgendaKw = [...new Set(items.flatMap(it => it._kws || []))];
   let offAgendaMin = null;
   if (items.length && allAgendaKw.length) {
-    offAgendaMin = Math.round(spoken
-      .filter(u => words(u.tx) >= 8 && !allAgendaKw.some(k => u.tx.toLowerCase().includes(k)))
-      .reduce((a,u) => a + u.dur, 0) * 10) / 10;
+    /* tag each utterance directly (u.offAgenda) rather than only summing a
+       filtered total, so the same classification can attribute individual
+       off-agenda contributions back to whoever said them (participant
+       drill-down), not just feed one aggregate minutes figure. */
+    spoken.forEach(u => { u.offAgenda = words(u.tx) >= 8 && !allAgendaKw.some(k => u.tx.toLowerCase().includes(k)); });
+    offAgendaMin = Math.round(spoken.filter(u => u.offAgenda).reduce((a,u) => a + u.dur, 0) * 10) / 10;
   }
   if (isNum(manOffAgenda)) addNote("off-agenda minutes manually supplied (advanced evidence) — not derived from text", 1);
   else if (isNum(offAgendaMin)) addNote("off-agenda ratio derived from keyword proximity to agenda topics — an approximation, not semantic analysis", 1);
@@ -891,8 +1361,40 @@ function localExtract(){
     }
     const inv = attTxt.match(/(\d+)\s+invit/i); if (inv) invitees = +inv[1];
   } else addNote("no attendance log — retention only for transcript speakers", 2);
+
+  /* structured chat -- "who: text" (an optional leading clock time too, the
+     way the app's own sample chat logs are written), not just a count, so
+     each attendee's own chat messages can be shown on their drill-down
+     page. Same substantive-message filter (>=3 words or a question) the
+     old count-only version used. */
+  const chatEntries = [];
+  if ($("aChat").value.trim()){
+    const chatRe = new RegExp("^(?:(\\d{1,2}:\\d{2})\\s+)?(" + NAME_ANY + ")\\s*[:：]\\s*(.+)$");
+    $("aChat").value.split(/\r?\n/).forEach(raw => {
+      const line = arDigits(raw.trim()); if (!line) return;
+      const m = line.match(chatRe);
+      if (m && isName(m[2]) && (words(m[3]) >= 3 || /[?؟]/.test(m[3])))
+        chatEntries.push({ who: m[2], time: m[1] || null, text: m[3] });
+    });
+  }
+  /* per-speaker timeline: every utterance they spoke, capped so the
+     editable extraction JSON doesn't end up duplicating the whole
+     transcript. Not assessable (empty) on pseudo-mode (no real speaker
+     labels) since there's no real "speaker" to attribute a timeline to. */
+  const TIMELINE_CAP = 40;
+  const timelineBySpeaker = {};
+  if (!pseudo) spoken.forEach((u, idx) => {
+    const arr = (timelineBySpeaker[u.sp] = timelineBySpeaker[u.sp] || []);
+    if (arr.length < TIMELINE_CAP){
+      const item = itemForIndex(idx);
+      arr.push({ time: u.ck || null, text: u.tx, agenda_item: item ? item.title : null, off_agenda: !!u.offAgenda });
+    }
+  });
+  const chatFor = name => chatEntries.filter(c => c.who.toLowerCase().startsWith(name.toLowerCase()) || name.toLowerCase().startsWith(c.who.toLowerCase()));
   const participants = Object.values(perSp).filter(x => !(pseudo && x.name === "Speaker")).slice(0, 12)
-    .map(p => ({ ...p, talk_minutes: Math.round(p.talk_minutes * 10) / 10 }));
+    .map(p => ({ ...p, talk_minutes: Math.round(p.talk_minutes * 10) / 10,
+      chat: chatEntries.length ? chatFor(p.name) : null,
+      timeline: timelineBySpeaker[p.name] || null }));
 
   /* presenters from agenda owners who spoke -- an item can list more than
      one presenter (it.owners), so every matched speaker gets credited with
@@ -929,7 +1431,7 @@ function localExtract(){
     presenters.push({ name: sp,
       planned_minutes: its.reduce((a,i)=>a+(i.planned_minutes||0),0) || null,
       actual_minutes: Math.round(act * 10) / 10 || null,
-      words: measurable ? w : null, filler_words: measurable ? fil : null,
+      words: measurable ? w : null, filler_words: (measurable && !majorityArabic) ? fil : null,
       questions_received: qr, questions_answered: qa,
       median_response_latency_seconds: median(lats),
       longest_turn_minutes: condensed ? null : (Math.round(longest * 10) / 10 || null) });
@@ -938,12 +1440,9 @@ function localExtract(){
   if (multiPresenterItems > 0) addNote(multiPresenterItems + " agenda item" + (multiPresenterItems > 1 ? "s" : "") +
     " had multiple presenters — each is scored against the item's full planned minutes, not a split share", 2);
 
-  /* chat */
-  let chatMsgs = null;
-  if ($("aChat").value.trim()){
-    chatMsgs = $("aChat").value.split(/\r?\n/)
-      .filter(l => /\w+\s*:/.test(l) && (words(l.replace(/^[^:]*:/,"")) >= 3 || /\?/.test(l))).length;
-  }
+  /* chat: chatEntries was already parsed (structured, per-participant)
+     above, alongside the timeline -- this is just its count. */
+  const chatMsgs = chatEntries.length ? chatEntries.length : null;
   /* MoM matching */
   let momItems = null, matched = null;
   const txItems = decisions.length + actions.length;
@@ -1053,19 +1552,20 @@ function localExtract(){
 $("localBtn").addEventListener("click", () => {
   const err = $("errBox"); err.style.display = "none"; $("noteBox").style.display = "none";
   if (!$("aTrans").value.trim()){
-    err.textContent = "Local extraction needs at least the transcript (agenda strongly recommended for D1/D6).";
+    err.textContent = t("errNeedTranscript");
     err.style.display = "block"; return;
   }
   try {
-    $("runState").textContent = "extracting locally";
+    $("runState").textContent = t("stExtracting");
     const ext = localExtract();
     $("pasteJson").value = JSON.stringify(ext, null, 1);
     const model = compute(ext);
+    lastModel = model;
     render(model);
-    $("runState").textContent = "done (local) · " + (isNum(model.mpi) ? "MPI " + Math.round(model.mpi) : "not assessable");
+    $("runState").textContent = t("stDoneLocal") + " · " + (isNum(model.mpi) ? t("stMPI", {n: Math.round(model.mpi)}) : t("stNotAssessable"));
   } catch (e) {
     err.textContent = e.message || String(e);
-    err.style.display = "block"; $("runState").textContent = "error";
+    err.style.display = "block"; $("runState").textContent = t("stError");
   }
 });
 
@@ -1178,37 +1678,37 @@ function compute(ext) {
   const recurRes = isNum(recurrence) ? 1 - recurrence : null;
 
   /* --- metric table --- */
-  const M = (dim,label,raw,disp,score) => ({dim,label,raw,disp,score: isNum(raw)? score : null});
+  const M = (key,dim,raw,disp,score) => ({key,dim,label:METRIC_META[key].label,raw,disp,score: isNum(raw)? score : null});
   const metrics = [
-    M("D1","Coverage rate",coverage,isNum(coverage)?pct(coverage)+" · "+subst+"/"+planned:"—",isNum(coverage)?frac(coverage):null),
-    M("D1","Avg time adherence",timeAdh,pct(timeAdh),isNum(timeAdh)?frac(timeAdh):null),
-    M("D1","Sequence adherence",seq,isNum(seq)?pct(seq)+" · "+seqN+"/"+planned:"—",isNum(seq)?frac(seq):null),
-    M("D1","Off-agenda ratio",offAg,pct(offAg),isNum(offAg)?norm(offAg,"offAgenda"):null),
-    M("D2","Start delay",startDelay,n1(startDelay)+" min",isNum(startDelay)?norm(startDelay,"startDelay"):null),
-    M("D2","Duration overrun",overrun,pct(overrun),isNum(overrun)?norm(overrun,"overrun"):null),
-    M("D2","Dead time ratio",dead,pct(dead),isNum(dead)?norm(dead,"dead"):null),
-    M("D2","Decision latency",latency,n1(latency)+" min",isNum(latency)?norm(latency,"latency"):null),
-    M("D3","Allocation adherence",aAlloc,pct(aAlloc),isNum(aAlloc)?frac(aAlloc):null),
-    M("D3","Pace deviation",aPace,n1(aPace)+" wpm",isNum(aPace)?norm(aPace,"pace"):null),
-    M("D3","Filler per 100 words",aFill,n1(aFill),isNum(aFill)?norm(aFill,"filler"):null),
-    M("D3","Q&A responsiveness",aQa,pct(aQa),isNum(aQa)?frac(aQa):null),
-    M("D3","Response latency",aLat,n1(aLat)+" s",isNum(aLat)?norm(aLat,"respLat"):null),
-    M("D3","Monologue ratio",aMono,pct(aMono),isNum(aMono)?norm(aMono,"monologue"):null),
-    M("D4","Attendance rate",attendance,isNum(attendance)?pct(attendance)+" · "+att.length+"/"+invitees:"—",isNum(attendance)?frac(attendance):null),
-    M("D4","Avg retention",retention,pct(retention),isNum(retention)?frac(retention):null),
-    M("D4","Active contributors",active,isNum(active)?pct(active)+" · "+activeN+"/"+att.length:"—",isNum(active)?frac(active):null),
-    M("D4","Speaking balance (1−Gini)",balance,pct(balance),isNum(balance)?frac(balance):null),
-    M("D4","Interaction density",density,n1(density)+" turns/10m",isNum(density)?norm(density,"density"):null),
-    M("D5","Question resolution",resol,isNum(resol)?pct(resol)+" · "+(inter.questions_answered||0)+"/"+inter.questions_raised:"—",isNum(resol)?frac(resol):null),
-    M("D5","Feedback instances",feedback,n1(feedback),isNum(feedback)?norm(feedback,"feedback"):null),
-    M("D5","Chat per attendee",chatPer,isNum(chatPer)?chatPer.toFixed(2):"—",isNum(chatPer)?norm(chatPer,"chat"):null),
-    M("D5","Interruptions per 10 min",interrupt,n1(interrupt),isNum(interrupt)?norm(interrupt,"interrupt"):null),
-    M("D6","Decision yield",dyield,isNum(dyield)?pct(dyield)+" · "+decMade+"/"+decExp:"—",isNum(dyield)?frac(dyield):null),
-    M("D6","Action completeness",complete,isNum(complete)?pct(complete)+" · "+(out.actions_with_owner_and_due||0)+"/"+out.actions_total:"—",isNum(complete)?frac(complete):null),
-    M("D6","Topic resolution (1−unresolved)",topicRes,pct(topicRes),isNum(topicRes)?frac(topicRes):null),
-    M("D6","MoM fidelity",fidelity,pct(fidelity),isNum(fidelity)?frac(fidelity):null),
-    M("D7","Prior-action closure (info only)",closure,isNum(closure)?pct(closure)+" · "+priorClosed+"/"+priorDue:"—",isNum(closure)?frac(closure):null),
-    M("D7","Topic recurrence, lower better (info only)",recurRes,pct(recurRes),isNum(recurRes)?frac(recurRes):null),
+    M("coverage","D1",coverage,isNum(coverage)?pct(coverage)+" · "+subst+"/"+planned:"—",isNum(coverage)?frac(coverage):null),
+    M("timeAdh","D1",timeAdh,pct(timeAdh),isNum(timeAdh)?frac(timeAdh):null),
+    M("seqAdherence","D1",seq,isNum(seq)?pct(seq)+" · "+seqN+"/"+planned:"—",isNum(seq)?frac(seq):null),
+    M("offAgendaM","D1",offAg,pct(offAg),isNum(offAg)?norm(offAg,"offAgenda"):null),
+    M("startDelayM","D2",startDelay,n1(startDelay)+" min",isNum(startDelay)?norm(startDelay,"startDelay"):null),
+    M("overrun","D2",overrun,pct(overrun),isNum(overrun)?norm(overrun,"overrun"):null),
+    M("deadTime","D2",dead,pct(dead),isNum(dead)?norm(dead,"dead"):null),
+    M("decLatency","D2",latency,n1(latency)+" min",isNum(latency)?norm(latency,"latency"):null),
+    M("allocAdherence","D3",aAlloc,pct(aAlloc),isNum(aAlloc)?frac(aAlloc):null),
+    M("paceDev","D3",aPace,n1(aPace)+" wpm",isNum(aPace)?norm(aPace,"pace"):null),
+    M("fillerRate","D3",aFill,n1(aFill),isNum(aFill)?norm(aFill,"filler"):null),
+    M("qaResp","D3",aQa,pct(aQa),isNum(aQa)?frac(aQa):null),
+    M("respLatency","D3",aLat,n1(aLat)+" s",isNum(aLat)?norm(aLat,"respLat"):null),
+    M("monologue","D3",aMono,pct(aMono),isNum(aMono)?norm(aMono,"monologue"):null),
+    M("attendance","D4",attendance,isNum(attendance)?pct(attendance)+" · "+att.length+"/"+invitees:"—",isNum(attendance)?frac(attendance):null),
+    M("retention","D4",retention,pct(retention),isNum(retention)?frac(retention):null),
+    M("activeContrib","D4",active,isNum(active)?pct(active)+" · "+activeN+"/"+att.length:"—",isNum(active)?frac(active):null),
+    M("speakingBalance","D4",balance,pct(balance),isNum(balance)?frac(balance):null),
+    M("interactionDensity","D4",density,n1(density)+" turns/10m",isNum(density)?norm(density,"density"):null),
+    M("questionRes","D5",resol,isNum(resol)?pct(resol)+" · "+(inter.questions_answered||0)+"/"+inter.questions_raised:"—",isNum(resol)?frac(resol):null),
+    M("feedbackInst","D5",feedback,n1(feedback),isNum(feedback)?norm(feedback,"feedback"):null),
+    M("chatPerAttendee","D5",chatPer,isNum(chatPer)?chatPer.toFixed(2):"—",isNum(chatPer)?norm(chatPer,"chat"):null),
+    M("interruptRate","D5",interrupt,n1(interrupt),isNum(interrupt)?norm(interrupt,"interrupt"):null),
+    M("decYield","D6",dyield,isNum(dyield)?pct(dyield)+" · "+decMade+"/"+decExp:"—",isNum(dyield)?frac(dyield):null),
+    M("actionComplete","D6",complete,isNum(complete)?pct(complete)+" · "+(out.actions_with_owner_and_due||0)+"/"+out.actions_total:"—",isNum(complete)?frac(complete):null),
+    M("topicRes","D6",topicRes,pct(topicRes),isNum(topicRes)?frac(topicRes):null),
+    M("momFidelity","D6",fidelity,pct(fidelity),isNum(fidelity)?frac(fidelity):null),
+    M("priorClosure","D7",closure,isNum(closure)?pct(closure)+" · "+priorClosed+"/"+priorDue:"—",isNum(closure)?frac(closure):null),
+    M("topicRecur","D7",recurRes,pct(recurRes),isNum(recurRes)?frac(recurRes):null),
   ];
 
   const dims = {};
@@ -1281,7 +1781,7 @@ function gaugeSVG(mpi) {
       <path d="M 15 111 A ${R} ${R} 0 0 1 195 111" fill="none" stroke="${col}" stroke-width="15" stroke-linecap="round"
         stroke-dasharray="${(val/100)*C} ${C}" style="transition:stroke-dasharray .6s ease"/>
     </svg>
-    <div class="num">${isNum(mpi) ? Math.round(mpi) : "—"}</div>
+    <div class="num" dir="ltr">${isNum(mpi) ? Math.round(mpi) : "—"}</div>
     <div class="lbl">MPI · 0–100</div>
   </div>`;
 }
@@ -1294,6 +1794,11 @@ function card(title, tag, inner) {
 }
 
 function render(r) {
+  /* single source of truth for "the last rendered model", regardless of
+     entry point (a run button's click handler, or a direct call) --
+     renderParticipant() and applyLang()'s language-switch re-render both
+     depend on this being current the moment render() finishes. */
+  lastModel = r;
   /* agent spec sec1/sec5: "Anonymize participants as P1, P2... when the
      'anonymize' option is set" — scoped to the Participation table, per
      sec5 item 5 ("Participation table — anonymizable"); presenter and
@@ -1306,40 +1811,40 @@ function render(r) {
     if (!anonMap.has(name)) anonMap.set(name, "P" + (anonMap.size + 1));
     return anonMap.get(name);
   };
-  const ttl = esc($("mTitle").value || r.ext.meeting?.title || "Untitled meeting");
+  const ttl = esc($("mTitle").value || r.ext.meeting?.title || t("untitledMeeting"));
   const date = esc($("mDate").value || r.ext.meeting?.date || "");
   const bandChip = r.band
-    ? `<span class="chip" style="color:${bandColor(r.mpi)};border-color:${bandColor(r.mpi)}"><span class="dot" style="background:${bandColor(r.mpi)}"></span>${r.band}</span>`
-    : `<span class="chip" style="color:var(--muted);border-color:var(--line)">Not assessable</span>`;
+    ? `<span class="chip" style="color:${bandColor(r.mpi)};border-color:${bandColor(r.mpi)}"><span class="dot" style="background:${bandColor(r.mpi)}"></span>${bandLabel(r.band)}</span>`
+    : `<span class="chip" style="color:var(--muted);border-color:var(--line)">${t("notAssessableChip")}</span>`;
   const durTxt = isNum(r.actual) && isNum(r.sched)
-    ? `${n1(r.actual)} min actual vs ${n1(r.sched)} scheduled` : (isNum(r.sched) ? `${n1(r.sched)} min scheduled` : "duration n/a");
+    ? t("minActualVsSched", {a:n1(r.actual), s:n1(r.sched)}) : (isNum(r.sched) ? t("minScheduled", {s:n1(r.sched)}) : t("durationNA"));
 
   const hero = `<div class="card hero">
     ${gaugeSVG(r.mpi)}
     <div class="meta">
       <h1>${ttl}</h1>
-      <div class="dt">${date}${date?" · ":""}${durTxt} · ${r.people.length} attendee${r.people.length===1?"":"s"}${isNum(r.invitees)?` of ${r.invitees} invited`:""}</div>
+      <div class="dt">${date}${date?" · ":""}${durTxt} · ${t("attendeeCount",{n:r.people.length,s:r.people.length===1?"":"s"})}${isNum(r.invitees)?t("ofInvited",{n:r.invitees}):""}</div>
       ${bandChip}
-      <div class="qline"><b>${r.assessable} of 6</b> dimensions assessable · ${r.flags.filter(f=>f.sev!=="info").length} flags · extraction: ${r.ext.quality?.has_timestamps ? "timestamps ✓" : "no timestamps"}, ${r.ext.quality?.has_speaker_labels ? "speakers ✓" : "no speaker labels"}</div>
+      <div class="qline">${t("dimAssessableLine",{a:`<b>${r.assessable}</b>`,f:r.flags.filter(f=>f.sev!=="info").length,ts:r.ext.quality?.has_timestamps?t("tsYes"):t("tsNo"),sp:r.ext.quality?.has_speaker_labels?t("spYes"):t("spNo")})}</div>
     </div>
   </div>`;
 
-  const meters = card("Dimension scores", "weighted → MPI", `<div class="meters">` +
+  const meters = card(t("cardDimScores"), t("tagWeightedMPI"), `<div class="meters">` +
     Object.keys(CONFIG.dims).map(d => {
       const s = r.dims[d];
       const bar = isNum(s)
         ? `<div class="bar"><div class="tick" style="left:50%"></div><div class="tick" style="left:70%"></div><div class="tick" style="left:85%"></div>
              <div class="fill" style="width:${s}%;background:${bandColor(s)}"></div></div>`
-        : `<div class="na">Not assessable — missing artifacts</div>`;
-      return `<div class="meter"><div class="top"><span class="nm">${d} ${CONFIG.dims[d]}</span><span class="wt">w=${CONFIG.weights[d]}</span>
+        : `<div class="na">${t("naMissing")}</div>`;
+      return `<div class="meter"><div class="top"><span class="nm">${d} ${dimName(d)}${tipHTML("tip-dim-"+d, dimDesc(d))}</span><span class="wt">w=${CONFIG.weights[d]}</span>
         <span class="sc" style="color:${isNum(s)?bandColor(s):"var(--muted)"}">${isNum(s)?Math.round(s):"—"}</span></div>${bar}</div>`;
     }).join("") + `</div>`);
 
-  const mtable = card("Metric detail", "raw value → normalized score", `<table><thead><tr>
-      <th style="width:44px">Dim</th><th>Metric</th><th class="num">Raw</th><th class="num" style="width:70px">Score</th></tr></thead><tbody>` +
-    r.metrics.map(m => `<tr><td class="dimtag">${m.dim}</td><td>${m.label}</td>
-      <td class="num">${m.disp}</td><td class="num">${scorePill(m.score)}</td></tr>`).join("") +
-    `</tbody></table><div class="foot" style="padding:9px 16px 12px">Counts are shown beside ratio metrics — tiny denominators (like 1/1) can legitimately score 0 or 100; judge them by the evidence size. \u201Cn/a\u201D means the supplied artifacts genuinely can\u2019t measure it. D7 rows are longitudinal and informational only — filled from the optional “Advanced evidence” card, weight 0, and never enter the dimension averages or the MPI.</div>`);
+  const mtable = card(t("cardMetricDetail"), t("tagRawScore"), `<table><thead><tr>
+      <th style="width:44px">${t("thDim")}</th><th>${t("thMetric")}</th><th class="num">${t("thRaw")}</th><th class="num" style="width:70px">${t("thScore")}</th></tr></thead><tbody>` +
+    r.metrics.map((m,mi) => `<tr><td class="dimtag">${m.dim}</td><td>${metaLabel(m.key)}${tipHTML("tip-m-"+mi, metaDesc(m.key))}</td>
+      <td class="num" dir="ltr">${m.disp}</td><td class="num" dir="ltr">${scorePill(m.score)}</td></tr>`).join("") +
+    `</tbody></table><div class="foot" style="padding:9px 16px 12px">${t("metricFoot")}</div>`);
 
   const agRows = r.items.map(i => {
     /* "not found" (amber) is a measurement failure -- distinct from a
@@ -1347,27 +1852,27 @@ function render(r) {
        real discussion. Conflating the two presents "we couldn't find
        it" as "the meeting skipped it", which isn't something the local
        route can actually know. */
-    const st = i.located === false ? ["var(--amber)","not found"]
-      : !i.substantive ? ["#98A2B3","skipped"] : (i.closed ? ["var(--green)","closed"] : ["var(--coral)","open"]);
+    const st = i.located === false ? ["var(--amber)",t("statNotFound")]
+      : !i.substantive ? ["#98A2B3",t("statSkipped")] : (i.closed ? ["var(--green)",t("statClosed")] : ["var(--coral)",t("statOpen")]);
     return `<tr><td>${esc(i.title)}</td>
       <td>${i.owners && i.owners.length ? esc(i.owners.join(", ")) : "—"}</td>
-      <td class="num">${n1(i.planned_minutes)} → ${n1(i.actual_minutes)}</td>
-      <td class="num">${i.planned_order??"—"} → ${i.actual_order??"—"}</td>
-      <td>${i.decision_expected ? (i.decision_made?"made":"expected, not made") : "—"}</td>
+      <td class="num" dir="ltr">${n1(i.planned_minutes)} → ${n1(i.actual_minutes)}</td>
+      <td class="num" dir="ltr">${i.planned_order??"—"} → ${i.actual_order??"—"}</td>
+      <td>${i.decision_expected ? (i.decision_made?t("decMade"):t("decExpectedNotMade")) : "—"}</td>
       <td><span class="status"><span class="dot" style="background:${st[0]}"></span>${st[1]}</span></td></tr>`;
   }).join("");
-  const agenda = card("Agenda coverage map", "planned vs actual", `<table><thead><tr>
-      <th>Item</th><th>Presenter</th><th class="num">Min p→a</th><th class="num">Order p→a</th><th>Decision</th><th>Status</th></tr></thead>
-      <tbody>${agRows || `<tr><td colspan="6" style="color:var(--muted)">No agenda items extracted</td></tr>`}</tbody></table>`);
+  const agenda = card(t("cardAgenda"), t("tagPlannedActual"), `<table><thead><tr>
+      <th>${t("thItem")}</th><th>${t("thPresenter")}</th><th class="num">${t("thMinPA")}</th><th class="num">${t("thOrderPA")}</th><th>${t("thDecision")}</th><th>${t("thStatus")}</th></tr></thead>
+      <tbody>${agRows || `<tr><td colspan="6" style="color:var(--muted)">${t("noAgendaExtracted")}</td></tr>`}</tbody></table>`);
 
   const prRows = r.pr.map(p => `<tr><td>${esc(p.name)}</td>
-      <td class="num">${n1(p.planned)} → ${n1(p.actualMin)}</td>
-      <td class="num">${n1(p.wpm)}</td><td class="num">${n1(p.filler)}</td>
-      <td class="num">${pct(p.qa)}</td><td class="num">${n1(p.lat)} s</td><td class="num">${pct(p.mono)}</td></tr>`).join("");
-  const presenters = card("Presenters", "feeds D3", `<table><thead><tr>
-      <th>Presenter</th><th class="num">Min p→a</th><th class="num">WPM</th><th class="num">Filler/100</th>
-      <th class="num">Q&amp;A</th><th class="num">Latency</th><th class="num">Monologue</th></tr></thead>
-      <tbody>${prRows || `<tr><td colspan="7" style="color:var(--muted)">No presenters extracted</td></tr>`}</tbody></table>`);
+      <td class="num" dir="ltr">${n1(p.planned)} → ${n1(p.actualMin)}</td>
+      <td class="num" dir="ltr">${n1(p.wpm)}</td><td class="num" dir="ltr">${n1(p.filler)}</td>
+      <td class="num" dir="ltr">${pct(p.qa)}</td><td class="num" dir="ltr">${n1(p.lat)} s</td><td class="num" dir="ltr">${pct(p.mono)}</td></tr>`).join("");
+  const presenters = card(t("cardPresenters"), t("tagFeedsD3"), `<table><thead><tr>
+      <th>${t("thPresenter")}</th><th class="num">${t("thMinPA")}</th><th class="num">${t("thWPM")}</th><th class="num">${t("thFiller")}</th>
+      <th class="num">${t("thQA")}</th><th class="num">${t("thLatency")}</th><th class="num">${t("thMonologue")}</th></tr></thead>
+      <tbody>${prRows || `<tr><td colspan="7" style="color:var(--muted)">${t("noPresentersExtracted")}</td></tr>`}</tbody></table>`);
 
   const totTalk = r.people.reduce((a,p)=>a+(isNum(p.talk_minutes)?p.talk_minutes:0),0);
   const shareOf = p => totTalk>0 && isNum(p.talk_minutes) ? p.talk_minutes/totTalk : null;
@@ -1378,16 +1883,30 @@ function render(r) {
      full; this filter is display-only. */
   const silentCount = r.people.filter(p => shareOf(p) === 0).length;
   const shownPeople = r.people.filter(p => shareOf(p) !== 0);
-  const paRows = shownPeople.map(p => {
+  /* per-attendee counts of questions asked, decisions stated and actions
+     owned, embedded directly in the Participation row -- all three already
+     exist elsewhere in the report (Attendee questions, Decisions, Action
+     items); this is a display-only rollup, derived at render time from the
+     same extraction data, so it costs nothing to keep in sync and works
+     unchanged on pasted Route B JSON. Matched by name prefix, same
+     tolerance the app already uses elsewhere (byOwner, dispName lookups). */
+  const qByPerson = p => (r.ext.interaction?.questions || []).filter(q => sameName(q.asker, p.name)).length;
+  const dByPerson = p => (r.ext.outcomes?.decisions || []).filter(d => sameName(d.speaker, p.name)).length;
+  const aByPerson = p => (r.ext.outcomes?.actions || []).filter(a => sameName(a.owner, p.name)).length;
+  const paRows = shownPeople.map((p, pi) => {
     const share = shareOf(p);
     return `<tr><td>${esc(dispName(p.name))}</td>
       <td style="min-width:170px"><div class="sharebar"><div class="tr"><div class="fl" style="width:${isNum(share)?share*100:0}%"></div></div>
-        <span class="num" style="font-family:var(--mono);font-size:11px">${pct(share)}</span></div></td>
-      <td class="mixdots">Q${p.questions||0} · A${p.answers||0} · P${p.proposals||0} · R${p.risks||0} · I${p.info||0}</td></tr>`;
+        <span class="num" dir="ltr" style="font-family:var(--mono);font-size:11px">${pct(share)}</span></div></td>
+      <td class="mixdots">Q${p.questions||0} · A${p.answers||0} · P${p.proposals||0} · R${p.risks||0} · I${p.info||0}</td>
+      <td class="num" dir="ltr">${qByPerson(p)}</td>
+      <td class="num" dir="ltr">${dByPerson(p)}</td>
+      <td class="num" dir="ltr">${aByPerson(p)}</td>
+      <td class="num"><button type="button" class="dotsBtn" data-pname="${esc(p.name)}" aria-label="${esc(t("btnParticipantDetail"))}" title="${esc(t("btnParticipantDetail"))}">⋯</button></td></tr>`;
   }).join("");
-  const parts = card("Participation", anonOn ? "talk share · contribution mix · anonymized" : "talk share · contribution mix", `<table><thead><tr>
-      <th>Attendee</th><th>Talk share</th><th>Contributions</th></tr></thead>
-      <tbody>${paRows || `<tr><td colspan="3" style="color:var(--muted)">No participants extracted</td></tr>`}</tbody></table>${silentCount ? `<div class="foot">${silentCount} attendee${silentCount>1?"s":""} present with no recorded speech ${silentCount>1?"are":"is"} not listed — ${silentCount>1?"they":"it"} still count${silentCount>1?"":"s"} in attendance rate, active contributors and speaking balance.</div>` : ""}`);
+  const parts = card(t("cardParticipation"), anonOn ? t("tagTalkShareAnon") : t("tagTalkShare"), `<table><thead><tr>
+      <th>${t("thAttendee")}</th><th>${t("thTalkShare")}</th><th>${t("thContributions")}</th><th class="num">${t("thQCount")}</th><th class="num">${t("thDCount")}</th><th class="num">${t("thACount")}</th><th class="num"></th></tr></thead>
+      <tbody>${paRows || `<tr><td colspan="7" style="color:var(--muted)">${t("noParticipantsExtracted")}</td></tr>`}</tbody></table>${silentCount ? `<div class="foot">${t("silentNote",{n:silentCount,s:silentCount>1?"s":"",v:silentCount>1?"are":"is",p:silentCount>1?"they":"it",c:silentCount>1?"":"s"})}</div>` : ""}`);
 
   /* every question, grouped by who asked it and tagged against the
      agenda -- "on topic" means it shares content with the discussion it
@@ -1398,28 +1917,38 @@ function render(r) {
      support that stronger claim). Not assessable at all without speaker
      labels, same gate as the rest of the Q&A metrics. */
   const qStatusCol = { answered: "var(--green)", deferred: "var(--amber)", unanswered: "var(--red)" };
+  const qStatusLabel = s => ({answered:t("statusAnswered"), deferred:t("statusDeferred"), unanswered:t("statusUnanswered")}[s] || s);
+  /* topic_match is a canonical English value in the extraction data (Route
+     B / the golden fixtures depend on that), translated only for display
+     here -- never mutate q.topic_match itself. */
+  const topicMatchLabel = tm => {
+    if (tm === "on topic") return t("topicOnTopic");
+    if (tm === "no keyword match") return t("topicNoMatch");
+    const m = /^other item \((.+)\)$/.exec(tm || "");
+    return m ? t("topicOtherItem", {t: esc(m[1])}) : tm;
+  };
   const extQuestions = r.ext.interaction?.questions;
   let attendeeQBody;
   if (extQuestions === null || extQuestions === undefined) {
-    attendeeQBody = `<div class="foot">Not assessable — no speaker labels, so questions can't be attributed to an asker.</div>`;
+    attendeeQBody = `<div class="foot">${t("naNoSpeakerQ")}</div>`;
   } else if (!extQuestions.length) {
-    attendeeQBody = `<div class="foot">No questions extracted.</div>`;
+    attendeeQBody = `<div class="foot">${t("noQuestionsExtracted")}</div>`;
   } else {
     const byAsker = {};
     extQuestions.forEach(q => { const key = q.asker || "Unknown"; (byAsker[key] = byAsker[key] || []).push(q); });
     attendeeQBody = Object.entries(byAsker).map(([asker, qs]) => `
-      <div class="rowhead" style="padding:9px 16px 0"><b>${esc(dispName(asker))}</b><span class="mixdots">${qs.length} question${qs.length>1?"s":""}</span></div>
+      <div class="rowhead" style="padding:9px 16px 0"><b>${esc(dispName(asker))}</b><span class="mixdots">${t("questionCount",{n:qs.length,s:qs.length>1?"s":""})}</span></div>
       <ul class="list rich">${qs.map(q => `<li>
-        <span class="status" style="flex:none"><span class="dot" style="background:${qStatusCol[q.status]||"#98A2B3"}"></span>${esc(q.status)}${q.responder?` · ${esc(dispName(q.responder))}`:""}</span>
+        <span class="status" style="flex:none"><span class="dot" style="background:${qStatusCol[q.status]||"#98A2B3"}"></span>${esc(qStatusLabel(q.status))}${q.responder?` · ${esc(dispName(q.responder))}`:""}</span>
         <div class="body">
-          <div class="rowhead">${q.agenda_item?`<span class="agtag">${esc(q.agenda_item)}</span>`:""}${q.topic_match?`<span class="mixdots">${esc(q.topic_match)}</span>`:""}</div>
+          <div class="rowhead">${q.agenda_item?`<span class="agtag">${esc(q.agenda_item)}</span>`:""}${q.topic_match?`<span class="mixdots">${esc(topicMatchLabel(q.topic_match))}</span>`:""}</div>
           <div>${esc(q.text)}</div>
           ${q.context && q.context.length > 1 ? `<div class="ctx">${q.context.slice(1).map(c=>`<div>${esc(c)}</div>`).join("")}</div>` : ""}
         </div>
         ${q.evidence ? `<span class="evi">${esc(q.evidence)}</span>` : ""}
       </li>`).join("")}</ul>`).join("");
   }
-  const attendeeQuestions = card("Attendee questions", anonOn ? "by asker · anonymized" : "by asker", attendeeQBody);
+  const attendeeQuestions = card(t("cardAttendeeQuestions"), anonOn ? t("tagByAskerAnon") : t("tagByAsker"), attendeeQBody);
 
   /* each decision renders as a full auditable block, not a one-line
      clip: who said it and when, which agenda item it belongs to, the
@@ -1436,23 +1965,19 @@ function render(r) {
       ${d.basis ? `<div class="basis">${esc(d.basis)}</div>` : ""}
       </div>${d.evidence?`<span class="evi">${esc(d.evidence)}</span>`:""}</li>`;
   }).join("");
-  const act = (r.ext.outcomes?.actions||[]).map((a,i)=>`<li><span class="ix">${i+1}</span><span>${esc(a.text)}${a.owner?` — <b>${esc(a.owner)}</b>`:""}${a.due?` · due ${esc(a.due)}`:""}</span>${a.evidence?`<span class="evi">${esc(a.evidence)}</span>`:""}</li>`).join("");
-  const decisionsCard = card("Decisions", null, `<ul class="list rich">${dec || `<li style="color:var(--muted)">None extracted</li>`}</ul>`);
-  const actionsCard = card("Action items", null, `<ul class="list">${act || `<li style="color:var(--muted)">None extracted</li>`}</ul>`);
+  const act = (r.ext.outcomes?.actions||[]).map((a,i)=>`<li><span class="ix">${i+1}</span><span>${esc(a.text)}${a.owner?` — <b>${esc(a.owner)}</b>`:""}${a.due?t("dueLabel",{d:esc(a.due)}):""}</span>${a.evidence?`<span class="evi">${esc(a.evidence)}</span>`:""}</li>`).join("");
+  const decisionsCard = card(t("cardDecisions"), null, `<ul class="list rich">${dec || `<li style="color:var(--muted)">${t("noneExtracted")}</li>`}</ul>`);
+  const actionsCard = card(t("cardActionItems"), null, `<ul class="list">${act || `<li style="color:var(--muted)">${t("noneExtracted")}</li>`}</ul>`);
 
   const sevCol = {high:"var(--red)", med:"var(--amber)", info:"#98A2B3"};
-  const flags = card("Flags", "deterministic checks", (r.flags.length
+  const flags = card(t("cardFlags"), t("tagDeterministic"), (r.flags.length
       ? r.flags.map(f=>`<div class="flag"><span class="sev" style="background:${sevCol[f.sev]}"></span><span>${esc(f.text)}</span>${f.evi?`<span class="evi">${esc(f.evi)}</span>`:""}</div>`).join("")
-      : `<div class="flag"><span class="sev" style="background:var(--green)"></span><span>No flags raised.</span></div>`));
+      : `<div class="flag"><span class="sev" style="background:var(--green)"></span><span>${t("noFlagsRaised")}</span></div>`));
 
-  const method = card("Method & configuration", "printed for audit", `<div class="foot">
-      Engine v${ENGINE_VERSION} — extraction: built-in local rule engine (fully offline), or any AI via the copy-prompt route — all scores computed on-device by deterministic code ·
-      normalization <code>clamp(100·(v−worst)/(best−worst))</code> · MPI re-weighted over assessable dimensions ·
-      Gini computed exactly on sorted talk minutes (the companion workbook uses a rank-based approximation that can overstate speaking balance when talk times tie — see docs/mpef-analyzer-reuse-guide.md) ·
-      sequence adherence is a planned-vs-actual position-match proxy for the framework's LCS measure · pace deviation is an average-WPM proxy for per-minute in-band share (both proxies match the companion workbook) ·
-      sentiment excluded · identical inputs + config ⇒ identical scores.
-      <pre>${esc(JSON.stringify({weights: CONFIG.weights, bands: CONFIG.bands, mpiBands: CONFIG.mpiBands}, null, 1))}</pre>
-      <div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ghost" onclick="window.print()">Print / save as PDF</button><button class="btn btn-ghost" onclick="downloadReportHtml()">Download report (.html)</button></div>
+  const method = card(t("cardMethod"), t("tagPrintedAudit"), `<div class="foot">
+      ${t("methodFoot", {v: ENGINE_VERSION})}
+      <pre dir="ltr">${esc(JSON.stringify({weights: CONFIG.weights, bands: CONFIG.bands, mpiBands: CONFIG.mpiBands}, null, 1))}</pre>
+      <div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ghost" onclick="window.print()">${t("btnPrint")}</button><button class="btn btn-ghost" onclick="downloadReportHtml()">${t("btnDownloadReport")}</button></div>
     </div>`);
 
   $("report").innerHTML = hero + meters + mtable + agenda + presenters + parts + attendeeQuestions + decisionsCard + actionsCard + flags + method;
@@ -1467,7 +1992,99 @@ function render(r) {
   $("report").focus();
 }
 
+/* ================= participant drill-down ================= */
+/* Full-page detail for one participant: everything the report already
+   knows about them, gathered from the same computed model (lastModel) --
+   no re-extraction, no separate data source. Swaps #report's content
+   in place, exactly like render() does; the Back button just calls
+   render(lastModel) again, which is a plain re-render since lastModel
+   is untouched by opening this page. */
+function renderParticipant(name) {
+  const r = lastModel; if (!r) return;
+  const anonOn = $("anonToggle").checked;
+  const anonMap = new Map();
+  const dispName = n => {
+    if (!anonOn) return n;
+    if (!anonMap.has(n)) anonMap.set(n, "P" + (anonMap.size + 1));
+    return anonMap.get(n);
+  };
+  const p = r.people.find(x => x.name === name) || r.ext.participants?.find(x => x.name === name);
+  if (!p) return;
+  const share = (() => {
+    const tot = r.people.reduce((a,x)=>a+(isNum(x.talk_minutes)?x.talk_minutes:0),0);
+    return tot>0 && isNum(p.talk_minutes) ? p.talk_minutes/tot : null;
+  })();
+  const presentedItems = (r.items||[]).filter(i => (i.owners||[]).some(o => sameName(o, name)));
+  const qAsked = (r.ext.interaction?.questions||[]).filter(q => sameName(q.asker, name));
+  const qAnswered = (r.ext.interaction?.questions||[]).filter(q => sameName(q.responder, name));
+  const decisions = (r.ext.outcomes?.decisions||[]).filter(d => sameName(d.speaker, name));
+  const actions = (r.ext.outcomes?.actions||[]).filter(a => sameName(a.owner, name));
+  const chat = p.chat || null;
+  const timeline = p.timeline || null;
+  const offAgenda = timeline ? timeline.filter(u => u.off_agenda) : null;
+
+  const qList = (qs, showResponder) => qs.length
+    ? `<ul class="list rich">${qs.map(q => `<li><div class="body">
+        <div class="rowhead">${q.agenda_item?`<span class="agtag">${esc(q.agenda_item)}</span>`:""}</div>
+        <div>${esc(q.text)}</div>
+        ${showResponder && q.responder ? `<div class="ctx"><div>${esc(t("pdAnsweredFor",{n:esc(dispName(q.asker||""))}))}</div></div>` : ""}
+      </div>${q.evidence?`<span class="evi">${esc(q.evidence)}</span>`:""}</li>`).join("")}</ul>`
+    : `<div class="foot">${t("pdNone")}</div>`;
+  const decList = decisions.length
+    ? `<ul class="list rich">${decisions.map(d => `<li><div class="body">
+        ${d.agenda_item?`<div class="rowhead"><span class="agtag">${esc(d.agenda_item)}</span></div>`:""}
+        <div>${esc(d.text)}</div>
+      </div>${d.time?`<span class="evi" dir="ltr">${esc(d.time)}</span>`:""}</li>`).join("")}</ul>`
+    : `<div class="foot">${t("pdNone")}</div>`;
+  const actList = actions.length
+    ? `<ul class="list">${actions.map(a => `<li><span>${esc(a.text)}${a.due?t("dueLabel",{d:esc(a.due)}):""}</span>${a.evidence?`<span class="evi">${esc(a.evidence)}</span>`:""}</li>`).join("")}</ul>`
+    : `<div class="foot">${t("pdNone")}</div>`;
+  const chatList = chat === null
+    ? `<div class="foot">${t("pdNoChatLog")}</div>`
+    : chat.length ? `<ul class="list">${chat.map(c => `<li><span>${esc(c.text)}</span>${c.time?`<span class="evi" dir="ltr">${esc(c.time)}</span>`:""}</li>`).join("")}</ul>` : `<div class="foot">${t("pdNone")}</div>`;
+  const offAgendaList = offAgenda === null
+    ? `<div class="foot">${t("pdNoTimeline")}</div>`
+    : offAgenda.length ? `<ul class="list rich">${offAgenda.map(u => `<li><div class="body"><div>${esc(u.text)}</div></div>${u.time?`<span class="evi" dir="ltr">${esc(u.time)}</span>`:""}</li>`).join("")}</ul>` : `<div class="foot">${t("pdNone")}</div>`;
+  const timelineList = timeline === null
+    ? `<div class="foot">${t("pdNoTimeline")}</div>`
+    : `<ul class="list rich">${timeline.map(u => `<li><div class="body">
+        ${u.agenda_item?`<div class="rowhead"><span class="agtag">${esc(u.agenda_item)}</span>${u.off_agenda?`<span class="mixdots">${esc(t("secOffAgenda"))}</span>`:""}</div>`:""}
+        <div>${esc(u.text)}</div>
+      </div>${u.time?`<span class="evi" dir="ltr">${esc(u.time)}</span>`:""}</li>`).join("")}</ul>${timeline.length >= 40 ? `<div class="foot">${t("pdTimelineCapped",{n:40})}</div>` : ""}`;
+
+  const head = `<div class="card"><div class="pdHead">
+      <h1>${esc(dispName(p.name))}</h1>
+      <span class="pdStat">${t("pdTalkShare")}: <b dir="ltr">${pct(share)}</b></span>
+      <span class="pdStat">${t("pdTalkMinutes")}: <b dir="ltr">${n1(p.talk_minutes)}</b></span>
+      <span class="pdStat">${p.present !== false ? t("pdPresent") : t("pdAbsent")}</span>
+      ${presentedItems.length ? `<span class="pdStat">${t("pdPresenterFor")}: ${presentedItems.map(i=>esc(i.title)).join(", ")}</span>` : ""}
+    </div></div>`;
+
+  $("report").innerHTML = `<button type="button" class="pdBack" id="pdBackBtn">${t("btnBack")}</button>`
+    + head
+    + card(t("secQuestionsAsked"), null, qList(qAsked, true))
+    + card(t("secAnswersGiven"), null, qList(qAnswered, false))
+    + card(t("secDecisionsStated"), null, decList)
+    + card(t("secActionsOwned"), null, actList)
+    + card(t("secChatMessages"), null, chatList)
+    + card(t("secOffAgenda"), null, offAgendaList)
+    + card(t("secTimeline"), null, timelineList);
+  $("report").focus();
+}
+/* delegated so it survives every render()/renderParticipant() innerHTML
+   replacement without re-attaching listeners per row or per page. */
+$("report").addEventListener("click", e => {
+  const dots = e.target.closest(".dotsBtn");
+  if (dots) { renderParticipant(dots.getAttribute("data-pname")); return; }
+  if (e.target.closest("#pdBackBtn") && lastModel) render(lastModel);
+});
+
 /* ================= run ================= */
+$("langToggle").addEventListener("click", () => {
+  CUR_LANG = CUR_LANG === "ar" ? "en" : "ar";
+  applyLang();
+});
+applyLang();
 </script>
 </body>
 </html>
