@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v2.0" - the filename never changes
+3. The dark header should read "engine v2.1" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -58,21 +58,23 @@ GOOD TO KNOW
   from "skipped" - and named in the flags panel so you can check it.
 - Decisions are checked, not just pattern-matched - a question, a hedge
   ("we should approve"), or bare "Agreed." with nothing decided is excluded.
-  Each surviving decision shows the full statement, who said it, when, which
-  agenda item it belongs to, the surrounding exchange, and what qualified it
-  as a real decision.
-- Every question is listed under "Attendee questions", grouped by who asked
-  it, tagged with the agenda item under discussion and whether it matched
-  that item's topic, another item's, or neither - so a question asked in
-  the wrong slot doesn't get lost.
 - The Participation table only lists attendees who actually spoke; a silent
   attendee (present but never heard from) is dropped from the table with a
   disclosed count, not shown at a flat 0% - they still count in attendance
   rate, active contributors and speaking balance. Each row also shows how
   many questions/decisions/actions that person is tied to, and a small
-  "..." button opens a full page for them: everything they asked, answered,
-  decided, own, said in chat, or contributed off-agenda, plus a complete
-  timeline - a "Back to report" button returns you to the dashboard.
+  "..." button opens a full page for them - this is where the real detail
+  lives: every question they asked (with the answer it got, its status, and
+  whether it matched the topic under discussion), every question they
+  answered, every decision they stated (with the exchange leading up to it
+  and what qualified it as a real decision), every action they own, what
+  they said in chat, and every off-agenda contribution - each one explaining
+  why it was judged off-agenda (too far from the agenda's own keywords) -
+  plus a complete timeline. A "Back to report" button returns you to the
+  dashboard. A decision, action or question that can't be tied to anyone on
+  the Participation table (no owner named, or a transcript with no speaker
+  labels) still isn't lost - it surfaces in a small "Unattributed items"
+  card at the bottom of the report instead.
 - Hover (or tap, or Tab to it) the small "i" next to any metric or
   dimension name for a one-line explanation of what it measures.
 - Click "العربية" at the top-left to switch the whole app - including the
