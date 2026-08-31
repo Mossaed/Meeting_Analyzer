@@ -161,7 +161,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 <header>
   <div class="wrap hd">
     <div class="mark">MPEF <b>Analyzer</b></div>
-    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.0</span></div>
+    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.1</span></div>
     <div class="spacer"></div>
     <div class="state" id="runState" aria-live="polite" data-i18n="runReady">offline-ready</div>
   </div>
@@ -274,7 +274,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 /* Single source for the build stamp shown in the header and the method
    footer -- the filename never changes between versions (reuse guide sec7
    / sec8), so this constant is the only reliable place to bump it. */
-const ENGINE_VERSION = "2.0";
+const ENGINE_VERSION = "2.1";
 const engineVerEl = document.getElementById("engineVerStamp");
 if (engineVerEl) engineVerEl.textContent = "engine v" + ENGINE_VERSION;
 
@@ -391,6 +391,18 @@ const dimDesc = d => CUR_LANG === "ar" ? DIM_META_AR[d] : DIM_META[d];
    string, same pattern as topicMatchLabel/qStatusLabel below. */
 const BAND_KEY = { "Highly Productive":"bandHighlyProductive", "Productive":"bandProductive", "Needs Improvement":"bandNeedsImprovement", "Ineffective":"bandIneffective" };
 const bandLabel = b => BAND_KEY[b] ? t(BAND_KEY[b]) : b;
+/* status colors + display labels for a question's resolution state, and for
+   topic_match -- both canonical English values in the extraction data (Route
+   B / the golden fixtures depend on that), translated only for display here,
+   shared by the participant detail page. */
+const qStatusCol = { answered: "var(--green)", deferred: "var(--amber)", unanswered: "var(--red)" };
+const qStatusLabel = s => ({answered:t("statusAnswered"), deferred:t("statusDeferred"), unanswered:t("statusUnanswered")}[s] || s);
+const topicMatchLabel = tm => {
+  if (tm === "on topic") return t("topicOnTopic");
+  if (tm === "no keyword match") return t("topicNoMatch");
+  const m = /^other item \((.+)\)$/.exec(tm || "");
+  return m ? t("topicOtherItem", {t: esc(m[1])}) : tm;
+};
 /* name-prefix tolerance shared by the Participation count columns and the
    participant detail page -- matches how the app already tolerates minor
    name-form differences elsewhere (byOwner, attendance-log lookups). */
@@ -549,15 +561,12 @@ const STR = {
   pdNoTimeline: { en:"No timestamped timeline available (transcript has no timestamps, or this participant's utterances weren't captured individually).", ar:"لا يتوفر خط زمني موقّت (النص بلا طوابع زمنية، أو لم تُلتقط عبارات هذا المشارك فردياً)." },
   pdTimelineCapped: { en:"Showing the first {n} utterances; the transcript continues beyond this.", ar:"عرض أول {n} عبارة؛ يستمر النص المكتوب بعد ذلك." },
   pdNoChatLog: { en:"No chat log provided.", ar:"لم يُقدَّم سجل دردشة." },
-  pdAnsweredFor: { en:"answered for {n}", ar:"أُجيب لصالح {n}" },
+  pdAskedBy: { en:"asked by {n}", ar:"سأله {n}" },
+  pdOffAgendaReason: { en:"{n}-word contribution, matching none of the agenda's keywords ({kw}) — keyword proximity, not topic understanding.", ar:"مساهمة من {n} كلمة، لا تطابق أياً من كلمات الأجندة المفتاحية ({kw}) — تقارب لفظي، لا فهم للموضوع." },
+  pdOffAgendaGeneric: { en:"Classified off-agenda by keyword proximity to the agenda — not semantic understanding.", ar:"صُنّفت خارج الأجندة استناداً إلى تقارب الكلمات المفتاحية مع الأجندة — لا فهم للموضوع." },
   silentNote: { en:"{n} attendee{s} present with no recorded speech {v} not listed — {p} still count{c} in attendance rate, active contributors and speaking balance.",
     ar:"{n} حاضر لم يُسجَّل له أي حديث لم يُدرَج في الجدول — يبقى محتسباً في معدل الحضور والمساهمين الفعّالين وتوازن الحديث." },
-  cardAttendeeQuestions: { en:"Attendee questions", ar:"أسئلة الحاضرين" },
-  tagByAsker: { en:"by asker", ar:"حسب السائل" },
-  tagByAskerAnon: { en:"by asker · anonymized", ar:"حسب السائل · مُخفى الهوية" },
-  naNoSpeakerQ: { en:"Not assessable — no speaker labels, so questions can't be attributed to an asker.", ar:"غير قابل للتقييم — لا توجد أسماء متحدثين، فلا يمكن نسبة الأسئلة لسائل." },
-  noQuestionsExtracted: { en:"No questions extracted.", ar:"لم تُستخرج أسئلة." },
-  questionCount: { en:"{n} question{s}", ar:"{n} سؤال" },
+  cardAttendeeQuestions: { en:"Questions", ar:"الأسئلة" },
   statusAnswered: { en:"answered", ar:"أُجيب عليه" },
   statusDeferred: { en:"deferred", ar:"مؤجَّل" },
   statusUnanswered: { en:"unanswered", ar:"دون إجابة" },
@@ -566,7 +575,8 @@ const STR = {
   topicOtherItem: { en:"other item ({t})", ar:"بند آخر ({t})" },
   cardDecisions: { en:"Decisions", ar:"القرارات" },
   cardActionItems: { en:"Action items", ar:"الإجراءات" },
-  noneExtracted: { en:"None extracted", ar:"لم يُستخرج شيء" },
+  cardUnattributed: { en:"Unattributed items", ar:"عناصر غير منسوبة" },
+  tagUnattributed: { en:"not tied to a participant row", ar:"غير مرتبطة بصف مشارك" },
   dueLabel: { en:" · due {d}", ar:" · الاستحقاق {d}" },
   cardFlags: { en:"Flags", ar:"الملاحظات" },
   tagDeterministic: { en:"deterministic checks", ar:"فحوصات حتمية" },
@@ -1542,6 +1552,12 @@ function localExtract(){
         prior_unresolved_topics: +$("fPriorTopics").value || null,
         prior_unresolved_recurring: +$("fPriorRecur").value || null } },
     quality: { has_timestamps: hasTS, has_speaker_labels: speakers.length > 0 && !pseudo,
+      /* the keyword list off-agenda classification actually checked each
+         utterance against -- null when off-agenda wasn't assessable at all
+         (no agenda items / no keywords), so the render layer can name what
+         was checked instead of asserting a bare verdict. Absent entirely on
+         legacy Route B JSON, which the render layer falls back for. */
+      agenda_keywords: (items.length && allAgendaKw.length) ? allAgendaKw : null,
       /* stable sort keeps push order within a tier, so higher-priority (more
          meeting-specific) disclosures always survive the spec's 6-note cap */
       notes: notes.slice().sort((a,b) => b.pri - a.pri).slice(0, 6).map(n => n.text) }
@@ -1908,66 +1924,28 @@ function render(r) {
       <th>${t("thAttendee")}</th><th>${t("thTalkShare")}</th><th>${t("thContributions")}</th><th class="num">${t("thQCount")}</th><th class="num">${t("thDCount")}</th><th class="num">${t("thACount")}</th><th class="num"></th></tr></thead>
       <tbody>${paRows || `<tr><td colspan="7" style="color:var(--muted)">${t("noParticipantsExtracted")}</td></tr>`}</tbody></table>${silentCount ? `<div class="foot">${t("silentNote",{n:silentCount,s:silentCount>1?"s":"",v:silentCount>1?"are":"is",p:silentCount>1?"they":"it",c:silentCount>1?"":"s"})}</div>` : ""}`);
 
-  /* every question, grouped by who asked it and tagged against the
-     agenda -- "on topic" means it shares content with the discussion it
-     was asked in; "other item (X)" flags a question that actually
-     belongs to a different agenda item than the one being discussed
-     when it was asked; "no keyword match" is the honest fallback when
-     neither can be shown (never "off topic" -- keyword proximity can't
-     support that stronger claim). Not assessable at all without speaker
-     labels, same gate as the rest of the Q&A metrics. */
-  const qStatusCol = { answered: "var(--green)", deferred: "var(--amber)", unanswered: "var(--red)" };
-  const qStatusLabel = s => ({answered:t("statusAnswered"), deferred:t("statusDeferred"), unanswered:t("statusUnanswered")}[s] || s);
-  /* topic_match is a canonical English value in the extraction data (Route
-     B / the golden fixtures depend on that), translated only for display
-     here -- never mutate q.topic_match itself. */
-  const topicMatchLabel = tm => {
-    if (tm === "on topic") return t("topicOnTopic");
-    if (tm === "no keyword match") return t("topicNoMatch");
-    const m = /^other item \((.+)\)$/.exec(tm || "");
-    return m ? t("topicOtherItem", {t: esc(m[1])}) : tm;
-  };
-  const extQuestions = r.ext.interaction?.questions;
-  let attendeeQBody;
-  if (extQuestions === null || extQuestions === undefined) {
-    attendeeQBody = `<div class="foot">${t("naNoSpeakerQ")}</div>`;
-  } else if (!extQuestions.length) {
-    attendeeQBody = `<div class="foot">${t("noQuestionsExtracted")}</div>`;
-  } else {
-    const byAsker = {};
-    extQuestions.forEach(q => { const key = q.asker || "Unknown"; (byAsker[key] = byAsker[key] || []).push(q); });
-    attendeeQBody = Object.entries(byAsker).map(([asker, qs]) => `
-      <div class="rowhead" style="padding:9px 16px 0"><b>${esc(dispName(asker))}</b><span class="mixdots">${t("questionCount",{n:qs.length,s:qs.length>1?"s":""})}</span></div>
-      <ul class="list rich">${qs.map(q => `<li>
-        <span class="status" style="flex:none"><span class="dot" style="background:${qStatusCol[q.status]||"#98A2B3"}"></span>${esc(qStatusLabel(q.status))}${q.responder?` · ${esc(dispName(q.responder))}`:""}</span>
-        <div class="body">
-          <div class="rowhead">${q.agenda_item?`<span class="agtag">${esc(q.agenda_item)}</span>`:""}${q.topic_match?`<span class="mixdots">${esc(topicMatchLabel(q.topic_match))}</span>`:""}</div>
-          <div>${esc(q.text)}</div>
-          ${q.context && q.context.length > 1 ? `<div class="ctx">${q.context.slice(1).map(c=>`<div>${esc(c)}</div>`).join("")}</div>` : ""}
-        </div>
-        ${q.evidence ? `<span class="evi">${esc(q.evidence)}</span>` : ""}
-      </li>`).join("")}</ul>`).join("");
+  /* decisions/actions/questions render in full under each person's page
+     now (renderParticipant()) -- but a null speaker/owner/asker, a
+     no-speaker-label transcript, or a Route B name absent from
+     participants[] can't be reached from any Participation row, and
+     would otherwise vanish from the rendered report entirely. This is
+     the fallback: a single compact card, rendered only when non-empty,
+     listing exactly those. Matched by the same name-prefix tolerance as
+     the Participation count columns. */
+  const unmatched = n => !n || !shownPeople.some(p => sameName(n, p.name));
+  const orphanDecisions = (r.ext.outcomes?.decisions||[]).filter(d => unmatched(d.speaker));
+  const orphanActions = (r.ext.outcomes?.actions||[]).filter(a => unmatched(a.owner));
+  const orphanQuestions = (r.ext.interaction?.questions||[]).filter(q => unmatched(q.asker));
+  let unattributedCard = "";
+  if (orphanDecisions.length || orphanActions.length || orphanQuestions.length) {
+    const dLines = orphanDecisions.map(d => `<li><span>${esc(d.text)}${d.agenda_item?` <span class="agtag">${esc(d.agenda_item)}</span>`:""}</span>${d.evidence?`<span class="evi">${esc(d.evidence)}</span>`:""}</li>`).join("");
+    const aLines = orphanActions.map(a => `<li><span>${esc(a.text)}${a.due?t("dueLabel",{d:esc(a.due)}):""}</span>${a.evidence?`<span class="evi">${esc(a.evidence)}</span>`:""}</li>`).join("");
+    const qLines = orphanQuestions.map(q => `<li><span>${esc(q.text)}${q.agenda_item?` <span class="agtag">${esc(q.agenda_item)}</span>`:""}</span>${q.evidence?`<span class="evi">${esc(q.evidence)}</span>`:""}</li>`).join("");
+    unattributedCard = card(t("cardUnattributed"), t("tagUnattributed"),
+      (dLines?`<div class="rowhead" style="padding:9px 16px 0"><b>${t("cardDecisions")}</b></div><ul class="list">${dLines}</ul>`:"") +
+      (aLines?`<div class="rowhead" style="padding:9px 16px 0"><b>${t("cardActionItems")}</b></div><ul class="list">${aLines}</ul>`:"") +
+      (qLines?`<div class="rowhead" style="padding:9px 16px 0"><b>${t("cardAttendeeQuestions")}</b></div><ul class="list">${qLines}</ul>`:""));
   }
-  const attendeeQuestions = card(t("cardAttendeeQuestions"), anonOn ? t("tagByAskerAnon") : t("tagByAsker"), attendeeQBody);
-
-  /* each decision renders as a full auditable block, not a one-line
-     clip: who said it and when, which agenda item it belongs to, the
-     complete statement, the surrounding exchange, and what qualified it
-     as a real decision (v1.6) -- so it can be verified against the
-     transcript without opening the raw text. */
-  const dec = (r.ext.outcomes?.decisions||[]).map((d,i)=>{
-    const head = [d.speaker?`<b>${esc(d.speaker)}</b>`:null, d.time?esc(d.time):null,
-      d.agenda_item?`<span class="agtag">${esc(d.agenda_item)}</span>`:null].filter(Boolean).join(" · ");
-    return `<li><span class="ix">${i+1}</span><div class="body">
-      ${head?`<div class="rowhead">${head}</div>`:""}
-      <div>${esc(d.text)}</div>
-      ${d.context && d.context.length ? `<div class="ctx">${d.context.map(c=>`<div>${esc(c)}</div>`).join("")}</div>` : ""}
-      ${d.basis ? `<div class="basis">${esc(d.basis)}</div>` : ""}
-      </div>${d.evidence?`<span class="evi">${esc(d.evidence)}</span>`:""}</li>`;
-  }).join("");
-  const act = (r.ext.outcomes?.actions||[]).map((a,i)=>`<li><span class="ix">${i+1}</span><span>${esc(a.text)}${a.owner?` — <b>${esc(a.owner)}</b>`:""}${a.due?t("dueLabel",{d:esc(a.due)}):""}</span>${a.evidence?`<span class="evi">${esc(a.evidence)}</span>`:""}</li>`).join("");
-  const decisionsCard = card(t("cardDecisions"), null, `<ul class="list rich">${dec || `<li style="color:var(--muted)">${t("noneExtracted")}</li>`}</ul>`);
-  const actionsCard = card(t("cardActionItems"), null, `<ul class="list">${act || `<li style="color:var(--muted)">${t("noneExtracted")}</li>`}</ul>`);
 
   const sevCol = {high:"var(--red)", med:"var(--amber)", info:"#98A2B3"};
   const flags = card(t("cardFlags"), t("tagDeterministic"), (r.flags.length
@@ -1980,7 +1958,7 @@ function render(r) {
       <div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-ghost" onclick="window.print()">${t("btnPrint")}</button><button class="btn btn-ghost" onclick="downloadReportHtml()">${t("btnDownloadReport")}</button></div>
     </div>`);
 
-  $("report").innerHTML = hero + meters + mtable + agenda + presenters + parts + attendeeQuestions + decisionsCard + actionsCard + flags + method;
+  $("report").innerHTML = hero + meters + mtable + agenda + presenters + parts + unattributedCard + flags + method;
   $("emptyState").style.display = "none";
   $("report").style.display = "flex";
   $("report").style.flexDirection = "column";
@@ -2023,17 +2001,31 @@ function renderParticipant(name) {
   const timeline = p.timeline || null;
   const offAgenda = timeline ? timeline.filter(u => u.off_agenda) : null;
 
-  const qList = (qs, showResponder) => qs.length
-    ? `<ul class="list rich">${qs.map(q => `<li><div class="body">
-        <div class="rowhead">${q.agenda_item?`<span class="agtag">${esc(q.agenda_item)}</span>`:""}</div>
+  /* the keyword list off-agenda classification actually checked each
+     utterance against -- absent on legacy Route B JSON, in which case the
+     off-agenda section below falls back to a generic sentence instead of
+     naming keywords it doesn't have. */
+  const agendaKw = r.ext.quality?.agenda_keywords || null;
+  const qAskedList = qAsked.length
+    ? `<ul class="list rich">${qAsked.map(q => `<li><span class="status" style="flex:none"><span class="dot" style="background:${qStatusCol[q.status]||"#98A2B3"}"></span>${esc(qStatusLabel(q.status))}${q.responder?` · ${esc(dispName(q.responder))}`:""}</span><div class="body">
+        <div class="rowhead">${q.agenda_item?`<span class="agtag">${esc(q.agenda_item)}</span>`:""}${q.topic_match?`<span class="mixdots">${esc(topicMatchLabel(q.topic_match))}</span>`:""}</div>
         <div>${esc(q.text)}</div>
-        ${showResponder && q.responder ? `<div class="ctx"><div>${esc(t("pdAnsweredFor",{n:esc(dispName(q.asker||""))}))}</div></div>` : ""}
+        ${q.context && q.context.length > 1 ? `<div class="ctx">${esc(q.context[1])}</div>` : ""}
+      </div>${q.evidence?`<span class="evi">${esc(q.evidence)}</span>`:""}</li>`).join("")}</ul>`
+    : `<div class="foot">${t("pdNone")}</div>`;
+  const qAnsweredList = qAnswered.length
+    ? `<ul class="list rich">${qAnswered.map(q => `<li><div class="body">
+        <div class="rowhead">${q.agenda_item?`<span class="agtag">${esc(q.agenda_item)}</span>`:""}${q.asker?`<span class="mixdots">${esc(t("pdAskedBy",{n:esc(dispName(q.asker))}))}</span>`:""}</div>
+        <div>${esc(q.text)}</div>
+        ${q.context && q.context.length > 1 ? `<div class="ctx">${esc(q.context[1])}</div>` : ""}
       </div>${q.evidence?`<span class="evi">${esc(q.evidence)}</span>`:""}</li>`).join("")}</ul>`
     : `<div class="foot">${t("pdNone")}</div>`;
   const decList = decisions.length
     ? `<ul class="list rich">${decisions.map(d => `<li><div class="body">
         ${d.agenda_item?`<div class="rowhead"><span class="agtag">${esc(d.agenda_item)}</span></div>`:""}
+        ${d.context && d.context.length > 1 ? `<div class="ctx">${d.context.slice(0,-1).map(c=>`<div>${esc(c)}</div>`).join("")}</div>` : ""}
         <div>${esc(d.text)}</div>
+        ${d.basis ? `<div class="basis">${esc(d.basis)}</div>` : ""}
       </div>${d.time?`<span class="evi" dir="ltr">${esc(d.time)}</span>`:""}</li>`).join("")}</ul>`
     : `<div class="foot">${t("pdNone")}</div>`;
   const actList = actions.length
@@ -2044,7 +2036,11 @@ function renderParticipant(name) {
     : chat.length ? `<ul class="list">${chat.map(c => `<li><span>${esc(c.text)}</span>${c.time?`<span class="evi" dir="ltr">${esc(c.time)}</span>`:""}</li>`).join("")}</ul>` : `<div class="foot">${t("pdNone")}</div>`;
   const offAgendaList = offAgenda === null
     ? `<div class="foot">${t("pdNoTimeline")}</div>`
-    : offAgenda.length ? `<ul class="list rich">${offAgenda.map(u => `<li><div class="body"><div>${esc(u.text)}</div></div>${u.time?`<span class="evi" dir="ltr">${esc(u.time)}</span>`:""}</li>`).join("")}</ul>` : `<div class="foot">${t("pdNone")}</div>`;
+    : offAgenda.length ? `<ul class="list rich">${offAgenda.map(u => `<li><div class="body">
+        ${u.agenda_item?`<div class="rowhead"><span class="agtag">${esc(u.agenda_item)}</span></div>`:""}
+        <div>${esc(u.text)}</div>
+        <div class="ctx"><div>${agendaKw && agendaKw.length ? esc(t("pdOffAgendaReason",{n:words(u.text),kw:agendaKw.join(", ")})) : t("pdOffAgendaGeneric")}</div></div>
+      </div>${u.time?`<span class="evi" dir="ltr">${esc(u.time)}</span>`:""}</li>`).join("")}</ul>` : `<div class="foot">${t("pdNone")}</div>`;
   const timelineList = timeline === null
     ? `<div class="foot">${t("pdNoTimeline")}</div>`
     : `<ul class="list rich">${timeline.map(u => `<li><div class="body">
@@ -2062,8 +2058,8 @@ function renderParticipant(name) {
 
   $("report").innerHTML = `<button type="button" class="pdBack" id="pdBackBtn">${t("btnBack")}</button>`
     + head
-    + card(t("secQuestionsAsked"), null, qList(qAsked, true))
-    + card(t("secAnswersGiven"), null, qList(qAnswered, false))
+    + card(t("secQuestionsAsked"), null, qAskedList)
+    + card(t("secAnswersGiven"), null, qAnsweredList)
     + card(t("secDecisionsStated"), null, decList)
     + card(t("secActionsOwned"), null, actList)
     + card(t("secChatMessages"), null, chatList)

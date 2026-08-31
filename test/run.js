@@ -697,8 +697,9 @@ console.log("\n=== Decisions: full text + speaker attribution (engine v1.4) ==="
     assertTrue(ext.outcomes.decisions.every(d => typeof d.speaker === "string" && d.speaker.length > 0), JSON.stringify(ext.outcomes.decisions)));
   const model = sandbox.compute(ext);
   sandbox.render(model);
-  check("rendered decision shows the speaker name inline", () =>
-    assertTrue(/<b>Sara<\/b>/.test(els.report.innerHTML) || /<b>Amir<\/b>/.test(els.report.innerHTML), "expected a bold speaker name in the Decisions card"));
+  check("main report no longer renders a Decisions / Action items / Questions card (engine v2.1 — moved to the participant page)", () =>
+    assertTrue(!/<h2>Decisions<\/h2>/.test(els.report.innerHTML) && !/<h2>Action items<\/h2>/.test(els.report.innerHTML) && !/<h2>Questions<\/h2>/.test(els.report.innerHTML),
+      "unexpected dashboard card found: " + els.report.innerHTML.slice(0, 4000)));
 }
 
 // ---------------------------------------------------------------------
@@ -846,13 +847,16 @@ console.log("\n=== Decisions: verified, enriched with time/agenda/context/basis 
   });
   const model = sandbox.compute(ext);
   sandbox.render(model);
-  const html = els.report.innerHTML;
-  check("Decisions card is rendered as its own full-width section, not split two-column with Action items", () =>
-    assertTrue(!/<div class="twocol">[\s\S]{0,200}Decisions/.test(html), "Decisions should no longer share a .twocol row"));
-  check("rendered Decisions card shows the agenda-item tag", () =>
-    assertTrue(/class="agtag">Roadmap update</.test(html) || /class="agtag">Budget check</.test(html) || /class="agtag">Launch go\/no-go</.test(html), html.slice(html.indexOf("Decisions"), html.indexOf("Decisions") + 100)));
   check("MPI is unchanged from v1.5 (70.92) -- all real decisions survived qualification", () =>
     assertClose(model.mpi, SAMPLE_EXPECTED.mpi, SAMPLE_EXPECTED.mpiTolerance, "mpi"));
+  sandbox.renderParticipant("Sara");
+  const pd = els.report.innerHTML;
+  check("participant page shows a decision's agenda-item tag under Decisions stated (engine v2.1)", () =>
+    assertTrue(/class="agtag">Launch go\/no-go</.test(pd) || /class="agtag">Budget check</.test(pd), pd.slice(pd.indexOf("Decisions stated"), pd.indexOf("Decisions stated") + 400)));
+  check("participant page shows a decision's preceding context line, not just the decision itself (engine v2.1)", () =>
+    assertTrue(/Launch go\/no-go for the pricing page/.test(pd), "expected Lina's preceding line ahead of Sara's decision"));
+  check("participant page shows a decision's basis (the qualifying trigger phrase) (engine v2.1)", () =>
+    assertTrue(/matched trigger phrase/.test(pd), "expected a basis line under a decision"));
 }
 
 // ---------------------------------------------------------------------
@@ -876,11 +880,17 @@ console.log("\n=== Attendee questions: agenda attribution + topic match (engine 
 
   const model = sandbox.compute(ext);
   sandbox.render(model);
-  const html = els.report.innerHTML;
-  check("Attendee questions card is rendered, grouped by asker", () =>
-    assertTrue(html.includes("Attendee questions") && html.includes(">Omar<") && html.includes(">Karl<")));
-  check("Karl's row shows the 'other item' topic-match label", () =>
-    assertTrue(/other item \(Launch go\/no-go\)/.test(html)));
+  sandbox.renderParticipant("Karl");
+  const pd = els.report.innerHTML;
+  check("participant page's Questions asked section shows the 'other item' topic-match label (engine v2.1)", () =>
+    assertTrue(/other item \(Launch go\/no-go\)/.test(pd), pd.slice(pd.indexOf("Questions asked"), pd.indexOf("Questions asked") + 400)));
+  check("participant page's Questions asked section shows the question's resolution status (engine v2.1)", () =>
+    assertTrue(/>deferred</.test(pd), "expected Karl's deferred question to show its status"));
+  const sara = ext.interaction.questions.find(q => q.status === "answered" && q.responder);
+  sandbox.renderParticipant(sara.responder);
+  const respPd = els.report.innerHTML;
+  check("participant page's Answers given section shows the answer text as context (engine v2.1)", () =>
+    assertTrue(respPd.includes(sara.context[1]), "expected the answer excerpt under Answers given"));
 }
 {
   // A question with no shared vocabulary anywhere must be labelled
@@ -906,11 +916,12 @@ console.log("\n=== Attendee questions: agenda attribution + topic match (engine 
     "[10:02] Yes, no issues reported so far from any of the regional teams.",
   ].join("\n");
   const ext = sandbox.localExtract();
-  const model = sandbox.compute(ext);
-  sandbox.render(model);
-  const html = els.report.innerHTML;
-  check("Attendee questions card states Not assessable when speaker labels are unavailable", () =>
-    assertTrue(/Attendee questions[\s\S]{0,300}Not assessable — no speaker labels/.test(html), html.slice(html.indexOf("Attendee questions"), html.indexOf("Attendee questions") + 300)));
+  check("questions array is null (not assessable) when speaker labels are unavailable", () =>
+    assertNull(ext.interaction.questions, JSON.stringify(ext.interaction.questions)));
+  let threw = false;
+  try { const model = sandbox.compute(ext); sandbox.render(model); } catch (e) { threw = e; }
+  check("no speaker labels -- no Questions card is rendered, and the dashboard doesn't throw (engine v2.1)", () =>
+    assertTrue(!threw && !/<h2>Questions<\/h2>/.test(els.report.innerHTML), threw && threw.stack));
 }
 
 // ---------------------------------------------------------------------
@@ -1104,10 +1115,60 @@ console.log("\n=== Participation counts + participant drill-down (engine v2.0) =
   });
   check("participant page includes her off-agenda-tagged utterances section", () =>
     assertTrue(/Off-agenda contributions/.test(els.report.innerHTML)));
+  check("off-agenda entry names the agenda keywords it was checked against (engine v2.1)", () =>
+    assertTrue(/matching none of the agenda&#39;s keywords \(kpi, roadmap, launch/.test(els.report.innerHTML),
+      els.report.innerHTML.slice(els.report.innerHTML.indexOf("Off-agenda contributions"), els.report.innerHTML.indexOf("Off-agenda contributions") + 600)));
   check("Back button is present and re-renders the report when clicked via the delegated handler", () => {
     sandbox.renderParticipant("Sara");
     assertTrue(els.report.innerHTML.includes('id="pdBackBtn"'));
   });
+  check("the unattributed-items catch-all card is absent on a normal meeting like the Sample (engine v2.1)", () => {
+    sandbox.render(model);
+    assertTrue(!/Unattributed items/.test(els.report.innerHTML), "catch-all card should not render when every item is tied to a participant row");
+  });
+}
+{
+  // A decision/action/question whose person can't be reached from any
+  // Participation row -- an owner-less action -- must still surface
+  // somewhere on the report, via the unattributed catch-all card.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Vendor — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Legal will review the vendor contract by Friday so we can close it out next sprint.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  check("an owner-less action item appears in the unattributed catch-all card (engine v2.1)", () =>
+    assertTrue(/Unattributed items/.test(html) && /review the vendor contract/.test(html), html.slice(html.indexOf("Unattributed"), html.indexOf("Unattributed") + 400)));
+}
+{
+  // Legacy Route B JSON predating quality.agenda_keywords must still render
+  // the off-agenda section -- falling back to a generic sentence instead of
+  // naming keywords it was never given.
+  const { sandbox, els } = boot(APP_PATH);
+  const legacy = {
+    meeting: { title: "t", date: null, scheduled_minutes: 30, actual_minutes: 30, start_delay_minutes: 0,
+      dead_time_minutes: null, off_agenda_minutes: null, total_talk_minutes: 20, avg_decision_latency_minutes: null, invitees: 5 },
+    agenda_items: [{ title: "Item", planned_minutes: 10, planned_order: 1, actual_minutes: 10, actual_order: 1,
+      substantive: true, decision_expected: false, decision_made: false, closed: false, evidence: "L1", owners: ["Sara"], located: true }],
+    participants: [{ name: "Sara", present: true, minutes_present: 30, talk_minutes: 10, questions: 0, answers: 0, proposals: 0, risks: 0, info: 0,
+      timeline: [{ text: "an off-agenda remark", time: "L1", agenda_item: "Item", off_agenda: true }] }],
+    presenters: [],
+    interaction: { questions_raised: 0, questions_answered: 0, questions_deferred: 0, questions: null,
+      feedback_instances: null, chat_substantive_messages: null, interruptions_per_10min: null, turns_per_10min: null },
+    outcomes: { actions_total: 0, actions_with_owner_and_due: 0, transcript_items: 0, mom_items: null, matched_items: null, decisions: [], actions: [] },
+    quality: { has_timestamps: false, has_speaker_labels: true, notes: [] }, // no agenda_keywords -- legacy JSON
+  };
+  let threw = false;
+  try {
+    const model = sandbox.compute(legacy);
+    sandbox.render(model);
+    sandbox.renderParticipant("Sara");
+  } catch (e) { threw = e; }
+  check("legacy JSON without quality.agenda_keywords renders the off-agenda section with a generic fallback, not throwing (engine v2.1)", () =>
+    assertTrue(!threw && /Classified off-agenda by keyword proximity to the agenda/.test(els.report.innerHTML), threw && threw.stack));
 }
 {
   // Legacy Route B JSON without chat/timeline must degrade gracefully,
@@ -1174,13 +1235,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v2.0'", () =>
-    assertTrue(/engine v2\.0/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.1'", () =>
+    assertTrue(/engine v2\.1/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "2.0"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.1"));
 }
 
 // ---------------------------------------------------------------------
