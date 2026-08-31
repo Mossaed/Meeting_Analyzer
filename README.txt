@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v1.6" - the filename never changes
+3. The dark header should read "engine v2.0" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -68,7 +68,20 @@ GOOD TO KNOW
 - The Participation table only lists attendees who actually spoke; a silent
   attendee (present but never heard from) is dropped from the table with a
   disclosed count, not shown at a flat 0% - they still count in attendance
-  rate, active contributors and speaking balance.
+  rate, active contributors and speaking balance. Each row also shows how
+  many questions/decisions/actions that person is tied to, and a small
+  "..." button opens a full page for them: everything they asked, answered,
+  decided, own, said in chat, or contributed off-agenda, plus a complete
+  timeline - a "Back to report" button returns you to the dashboard.
+- Hover (or tap, or Tab to it) the small "i" next to any metric or
+  dimension name for a one-line explanation of what it measures.
+- Click "العربية" at the top-left to switch the whole app - including the
+  report and the Sample meeting - to Arabic with a right-to-left layout,
+  and back to English any time. The choice isn't saved between sessions,
+  same as everything else here. Arabic transcripts are captured with the
+  same rigor as English ones (names, decisions, actions, questions,
+  agenda matching); the flags panel and the any-AI extraction prompt stay
+  in whichever language was active when you last pressed Extract & score.
 - Nothing is saved between sessions and nothing ever leaves your device.
 - Use "Print / save as PDF", or "Download report (.html)" for a
   standalone copy, at the bottom of a report to keep or share results.
