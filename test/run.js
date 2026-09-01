@@ -249,6 +249,145 @@ function extractFirstUtterance(sandbox, raw) {
 }
 
 // ---------------------------------------------------------------------
+console.log("\n=== Speaker identity: case-insensitive fold, anchored to a known speaker (engine v2.5) ===");
+{
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Budget review, we are trending under plan this quarter overall.",
+    "[10:05] sara: Also the tooling spend came in a little under what we forecast.",
+    "[10:10] Omar: Any risk we should flag before we move on today?",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("Sara and sara fold into one participant, displayed with the capitalized spelling", () =>
+    assertEqual(ext.participants.filter(p => p.name === "Sara").length, 1, JSON.stringify(ext.participants.map(p => p.name))));
+  check("no orphaned utterance is left with sp: null once the lowercase line is anchored", () => {
+    const model = sandbox.compute(ext);
+    sandbox.render(model);
+    // Sara's two turns (10 + 8 words) both count toward her talk time --
+    // an orphaned "sara: ..." utterance would inflate nobody's total, so
+    // her share alone accounts for the model's whole positive Sara talk time.
+    const sara = ext.participants.find(p => p.name === "Sara");
+    assertTrue(sara.talk_minutes > 0, "expected Sara's folded talk time to be positive");
+  });
+  check("Sara's own lowercase timeline entry is attributed to her, not dropped", () => {
+    const sara = ext.participants.find(p => p.name === "Sara");
+    assertTrue(!!(sara.timeline && sara.timeline.some(u => /tooling spend/.test(u.text))), "expected two timeline entries under Sara");
+  });
+}
+{
+  // Same fold, but with no timestamps at all -- the path where a
+  // lowercase line has already been glued onto the previous speaker's
+  // utterance as a continuation by the time the first parse pass returns,
+  // so the fix has to come from a second, anchored pass over the raw text.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = [
+    "Sara: Budget review, we are trending under plan this quarter overall today everyone.",
+    "sara: Also the tooling spend came in a little under what we forecast for this cycle.",
+    "Omar: Any risk we should flag before we move on to the next agenda item today?",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("the fold also works with no timestamps (the continuation-merge path)", () => {
+    assertEqual(ext.participants.filter(p => p.name === "Sara").length, 1, JSON.stringify(ext.participants.map(p => p.name)));
+    const sara = ext.participants.find(p => p.name === "Sara");
+    assertTrue(!!(sara.timeline && sara.timeline.some(u => /tooling spend/.test(u.text))), "expected Sara's second turn to be attributed to her, not glued onto her first");
+  });
+}
+{
+  // A question by Sara "answered" by sara is a self-answer once folded --
+  // must NOT be counted as a real answered exchange.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Should we approve the extra headcount for the platform team this quarter?",
+    "[10:02] sara: Yes I think we should move forward with that plan given the numbers.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("a question 'answered' by a case-variant of its own asker is not counted as answered", () => {
+    const q = ext.interaction.questions[0];
+    assertEqual(q.status, "unanswered", JSON.stringify(q));
+    assertEqual(q.responder, null, JSON.stringify(q));
+  });
+}
+{
+  // The anchor must hold: recognition of a lowercase label is anchored to
+  // an already-established capitalized speaker, never a general shape
+  // relaxation -- so ordinary prose can't become a speaker.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Budget review, we are trending under plan this quarter overall.",
+    "[10:03] so: we should ship it soon and move forward with the plan today.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("prose that happens to look like 'word:' never becomes a speaker just because a lowercase form exists (engine v2.5 anchor boundary)", () =>
+    assertTrue(!ext.participants.some(p => /^so$/i.test(p.name)), JSON.stringify(ext.participants.map(p => p.name))));
+}
+{
+  // An all-lowercase transcript with no capitalized twin anywhere is the
+  // deliberate boundary of the anchored rule: it must still degrade to
+  // Not Assessable, not throw and not silently invent a speaker.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — 10 min";
+  els.aTrans.value = [
+    "[10:00] sara: Budget review, we are trending under plan this quarter overall.",
+    "[10:05] omar: Any risk we should flag before we move on to the next item?",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("an all-lowercase transcript with no capitalized twin still reports has_speaker_labels: false", () =>
+    assertTrue(ext.quality.has_speaker_labels === false, JSON.stringify(ext.participants.map(p => p.name))));
+}
+{
+  // Agenda owners and chat log names anchor to a known speaker the same way.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — sara — 10 min";
+  els.aTrans.value = [
+    "[10:00] Sara: Budget review, we are trending under plan this quarter overall.",
+    "[10:05] Omar: Any risk we should flag before we move on today?",
+  ].join("\n");
+  els.aChat.value = "10:02 sara: posted the spreadsheet link in the channel for everyone to review.";
+  els.aAtt.value = "sara 10:00 - 10:45\nOmar 10:00 - 10:40\n2 invited";
+  const ext = sandbox.localExtract();
+  check("a lowercase agenda owner is credited to the matching known speaker, canonically spelled (engine v2.5)", () =>
+    assertTrue(ext.agenda_items[0].owners.includes("Sara"), JSON.stringify(ext.agenda_items[0])));
+  check("a lowercase chat-log name lands on the matching known speaker (engine v2.5)", () => {
+    const sara = ext.participants.find(p => p.name === "Sara");
+    assertTrue(!!(sara.chat && sara.chat.length === 1), JSON.stringify(sara && sara.chat));
+  });
+  check("a lowercase attendance-log name resolves minutes_present onto the matching known speaker (engine v2.5)", () => {
+    const sara = ext.participants.find(p => p.name === "Sara");
+    assertEqual(sara.minutes_present, 45, JSON.stringify(sara));
+  });
+}
+{
+  // The honest limit named in the plan: a silent attendee who appears
+  // ONLY in the attendance log, in lowercase, has no speaker to anchor
+  // to and is not captured -- documented, not silently "fixed" by an
+  // unanchored relaxation that would let any word+two-clock-times parse.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. Budget review — Sara — 10 min";
+  els.aTrans.value = "[10:00] Sara: Budget review, we are trending under plan this quarter overall.";
+  els.aAtt.value = "Sara 10:00 - 10:45\nmei 10:00 - 10:40\n2 invited";
+  const ext = sandbox.localExtract();
+  check("a lowercase attendance-only name with no transcript twin is not captured (documented boundary)", () =>
+    assertTrue(!ext.participants.some(p => /^mei$/i.test(p.name)), JSON.stringify(ext.participants.map(p => p.name))));
+}
+{
+  // Arabic names have no case to fold -- confirm the CAP-based logic is a
+  // no-op and the first-seen spelling is simply kept, untouched.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aAgenda.value = "1. مراجعة الميزانية — سارة — 10 دقائق";
+  els.aTrans.value = [
+    "[10:00] سارة: مراجعة الميزانية نحن ضمن الخطة هذا الربع بشكل عام.",
+    "[10:05] عمر: هل هناك أي مخاطر يجب أن نذكرها قبل الانتقال؟",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  check("Arabic speaker names are unaffected by the case-fold (engine v2.5)", () =>
+    assertEqual(ext.participants.map(p => p.name).sort().join(","), "سارة,عمر".split(",").sort().join(","), JSON.stringify(ext.participants.map(p => p.name))));
+}
+
+// ---------------------------------------------------------------------
 console.log("\n=== Tolerant JSON repair (Route B constrained-output resilience) ===");
 {
   const { sandbox } = boot(APP_PATH);
@@ -1461,13 +1600,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v2.4'", () =>
-    assertTrue(/engine v2\.4/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.5'", () =>
+    assertTrue(/engine v2\.5/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "2.4"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.5"));
 }
 
 // ---------------------------------------------------------------------

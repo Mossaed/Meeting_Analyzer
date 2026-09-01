@@ -175,7 +175,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 <header>
   <div class="wrap hd">
     <div class="mark">MPEF <b>Analyzer</b></div>
-    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.4</span></div>
+    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.5</span></div>
     <div class="spacer"></div>
     <div class="state" id="runState" aria-live="polite" data-i18n="runReady">offline-ready</div>
   </div>
@@ -288,7 +288,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 /* Single source for the build stamp shown in the header and the method
    footer -- the filename never changes between versions (reuse guide sec7
    / sec8), so this constant is the only reliable place to bump it. */
-const ENGINE_VERSION = "2.4";
+const ENGINE_VERSION = "2.5";
 const engineVerEl = document.getElementById("engineVerStamp");
 if (engineVerEl) engineVerEl.textContent = "engine v" + ENGINE_VERSION;
 
@@ -1084,7 +1084,15 @@ function normalizeTranscript(raw){
    pattern. Off by default, so a hand-pasted inline or caption transcript
    (where a leading "Word word:" really can be speech) keeps the strict
    rule and its honest no-speaker-labels verdict (v2.3). */
-function lxParseTranscript(text, blockFmt){
+/* knownNames (v2.5), when supplied, anchors recognition of a speaker label
+   that doesn't match NAME_ANY's title-case shape -- "sara:" alongside
+   "Sara:" elsewhere in the same transcript -- to names already known to
+   be real speakers, rather than loosening the shape requirement itself
+   (which would let ordinary lowercase prose like "so: we should ship"
+   parse as a speaker). Escaped and alternated case-insensitively; tried
+   only after the strict patterns fail, so a title-case match is never
+   second-guessed. */
+function lxParseTranscript(text, blockFmt, knownNames){
   const uts = [];
   const NAME = NAME_ANY;
   const TIME = "\\d{1,2}:\\d{2}(?::\\d{2})?";
@@ -1093,6 +1101,11 @@ function lxParseTranscript(text, blockFmt){
   const reBlk = new RegExp("^[\\[\\(]?(" + TIME + ")[\\]\\)]?\\s+([^\\n:：]{1,48})\\s*[:：]\\s*(.+)$");
   const reC = new RegExp("^(" + NAME + ")\\s*[:：]\\s*(.+)$");
   const reT = /^[\[\(]?(\d{1,2}:\d{2}(?::\d{2})?)[\]\)]?\s*(.*)$/;
+  const known = knownNames && knownNames.length
+    ? knownNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") : null;
+  const reAK = known && new RegExp("^[\\[\\(]?(" + TIME + ")[\\]\\)]?\\s+(" + known + ")\\s*[:：]\\s*(.+)$", "i");
+  const reBK = known && new RegExp("^(" + known + ")\\s*[\\[\\(](" + TIME + ")[\\]\\)]\\s*[:：]?\\s*(.+)$", "i");
+  const reCK = known && new RegExp("^(" + known + ")\\s*[:：]\\s*(.+)$", "i");
   text.split(/\r?\n/).forEach((raw, li) => {
     const line = arDigits(raw.trim()); if(!line) return;
     let m;
@@ -1100,13 +1113,31 @@ function lxParseTranscript(text, blockFmt){
     if ((m = line.match(reB)) && isName(m[1])) { uts.push({t:parseClockMin(m[2]), ck:m[2], sp:m[1], tx:m[3], li}); return; }
     if (blockFmt && (m = line.match(reBlk)) && isSpeakerLabel(m[2])) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:m[2].trim(), tx:m[3], li}); return; }
     if ((m = line.match(reC)) && !/^https?/i.test(m[1]) && isName(m[1])) { uts.push({t:null, ck:null, sp:m[1], tx:m[2], li}); return; }
+    if (reAK && (m = line.match(reAK))) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:m[2], tx:m[3], li}); return; }
+    if (reBK && (m = line.match(reBK))) { uts.push({t:parseClockMin(m[2]), ck:m[2], sp:m[1], tx:m[3], li}); return; }
+    if (reCK && (m = line.match(reCK)) && !/^https?/i.test(m[1])) { uts.push({t:null, ck:null, sp:m[1], tx:m[2], li}); return; }
     if ((m = line.match(reT)) && parseClockMin(m[1]) !== null) { uts.push({t:parseClockMin(m[1]), ck:m[1], sp:null, tx:m[2]||"", li}); return; }
     if (uts.length && uts[uts.length-1].tx.length < 8000) uts[uts.length-1].tx += " " + line;   // continuation (capped)
   });
   return uts;
 }
-function lxParseAgenda(text){
+/* knownSpeakers (v2.5), when supplied, anchors a lowercase agenda owner
+   ("sara" in "— sara —") to a speaker already established from the
+   transcript, the same anchored-recognition posture as
+   lxParseTranscript's knownNames -- so the owner is credited (in the
+   speaker's canonical spelling) instead of failing the capital-letter
+   shape test and losing that presenter's D3 metrics outright. */
+function lxParseAgenda(text, knownSpeakers){
   const items = []; let order = 1;
+  const shaped = n => new RegExp("^(?:[A-ZÀ-Þ]|[" + AR_LETTER + "])").test(n) && n.split(/\s+/).length <= 3;
+  const resolve = n => {
+    if (shaped(n)) return n;
+    if (knownSpeakers && n.split(/\s+/).length <= 3){
+      const hit = knownSpeakers.find(s => sameName(s, n));
+      if (hit) return hit;
+    }
+    return null;
+  };
   for (const raw of text.split(/\r?\n/)){
     let line = arDigits(raw.trim()); if(!line) continue;
     line = line.replace(/^\d+[\.\)]\s*/,"").replace(/^[-*•·]\s*/,"");
@@ -1115,18 +1146,18 @@ function lxParseAgenda(text){
     const title = parts[0].replace(/\(.*?\)/g,"").trim();
     /* an owner segment may list more than one presenter, e.g. "Sara & Amir"
        or "Sara, Amir and Lin" -- split into candidate names first, then
-       apply the name-shape heuristic to EACH name rather than the whole
-       segment (that per-segment token cap is what used to reject anything
-       past a single two-word name). Accept the segment only if every
-       split name is name-shaped, so "table topic, 10 min" style noise
-       still falls through to the next segment untouched. */
+       resolve EACH name individually (name-shaped, or anchored to a known
+       speaker) rather than the whole segment (that per-segment token cap
+       is what used to reject anything past a single two-word name).
+       Accept the segment only if every split name resolves, so "table
+       topic, 10 min" style noise still falls through untouched. */
     let owners = [];
     for (const seg of parts.slice(1)){
       const q = seg.trim();
       if (!q || /\d/.test(q)) continue;
       const names = q.split(/\s*(?:,|،|&|\+|\band\b|\sو\s)\s*/i).map(n => n.trim()).filter(Boolean);
-      const valid = names.filter(n => new RegExp("^(?:[A-ZÀ-Þ]|[" + AR_LETTER + "])").test(n) && n.split(/\s+/).length <= 3);
-      if (valid.length && valid.length === names.length) { owners = valid; break; }
+      const resolved = names.map(resolve);
+      if (resolved.length && resolved.every(Boolean)) { owners = resolved; break; }
     }
     if (title) items.push({ title, owners, owner: owners[0] || null,
       planned_minutes: dur ? +dur : null, planned_order: order++ });
@@ -1196,6 +1227,21 @@ function localExtract(){
   let uts = lxParseTranscript(txNorm.text, !!txNorm.fmt);
   const FMT_ERR = "Couldn't parse any utterances. Supported: [10:04] Name: text · Name: text · WebVTT / SRT · speaker/timestamp blocks in either order (Name 0:04 · 02:32:23 Name).";
   if (!uts.length) throw new Error(FMT_ERR);
+  /* a second pass anchored to the speakers pass 1 already found -- so a
+     case variant of an established name ("sara:" alongside "Sara:"
+     elsewhere) is recognized, without loosening the shape requirement
+     itself (which would let ordinary prose like "so: we should ship"
+     parse as a speaker). Re-parses from the raw text rather than patching
+     pass 1, since a no-timestamp lowercase line has already been glued
+     onto the previous utterance as a continuation by the time pass 1
+     returns, and there is nothing left there to repair. Kept only when it
+     attributes strictly more utterances, so it can never make attribution
+     worse (v2.5). */
+  const knownPass1 = [...new Set(uts.filter(u => u.sp).map(u => u.sp))];
+  if (knownPass1.length){
+    const retry = lxParseTranscript(txNorm.text, !!txNorm.fmt, knownPass1);
+    if (retry.filter(u => u.sp).length > uts.filter(u => u.sp).length) uts = retry;
+  }
   let spoken = uts.filter(u => u.sp);
   let pseudo = false;
   if (!spoken.length){
@@ -1204,6 +1250,22 @@ function localExtract(){
     spoken = uts; pseudo = true;
     addNote("no speaker labels — participation, presenter & Q&A metrics not assessable", 2);
   }
+  /* one person, one spelling. perSp, timelineBySpeaker, the Q&A pairing's
+     r.sp !== q.u.sp test, the presenter loops and decisions[].speaker all
+     index or compare by this exact string, so folding case variants here
+     -- immediately before the roster is built -- is the single point that
+     makes every one of them agree. A capitalized spelling always wins for
+     display; if every occurrence is lowercase it's title-cased. Arabic is
+     untouched: toLowerCase() is a no-op on it and neither test fires, so
+     the first-seen spelling simply stays (v2.5). */
+  const CAP = /^[A-ZÀ-Þ]/;
+  const canonSp = new Map();
+  spoken.forEach(u => {
+    const k = u.sp.toLowerCase(), cur = canonSp.get(k);
+    if (!cur || (!CAP.test(cur) && CAP.test(u.sp))) canonSp.set(k, u.sp);
+  });
+  canonSp.forEach((v, k) => { if (/^[a-z]/.test(v)) canonSp.set(k, v[0].toUpperCase() + v.slice(1)); });
+  uts.forEach(u => { if (u.sp) u.sp = canonSp.get(u.sp.toLowerCase()) || u.sp; });
   const speakers = [...new Set(spoken.map(u => u.sp))];
   const times = uts.map(u => u.t).filter(isNum);
   const hasTS = times.length >= uts.length * 0.5 && times.length >= 2;
@@ -1313,7 +1375,7 @@ function localExtract(){
      the anchor over an earlier passing mention (sharing only one), and
      when two items compete for the same utterance, the better fit gets
      it instead of whichever item happens to be listed first. */
-  const items = lxParseAgenda($("aAgenda").value);
+  const items = lxParseAgenda($("aAgenda").value, speakers);
   const tokenize = t => t.toLowerCase().split(new RegExp("[^" + TOKEN_CLASS + "]+")).filter(w => w.length >= 3);
   const spokenStems = spoken.map(u => new Set(tokenize(u.tx).map(stemAny)));
   items.forEach(it => {
@@ -1481,6 +1543,23 @@ function localExtract(){
       else perSp[m[1]] = { name:m[1], present:true, minutes_present:mins, talk_minutes:0,
         questions:0, answers:0, proposals:0, risks:0, info:0, off_agenda_minutes:0 };
     }
+    /* anchored fallback: a lowercase attendance-log name ("sara 10:00 -
+       10:45") is credited to Sara when she's already a known speaker --
+       never captured unconditionally, since that would let any word
+       followed by two clock times become an attendee. A silent attendee
+       who appears ONLY in the attendance log, in lowercase, has no
+       speaker to anchor to and still won't be captured -- an honest limit,
+       not a bug (v2.5). */
+    if (speakers.length){
+      const known = speakers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+      const reK = new RegExp("(" + known + ")\\s+(\\d{1,2}:\\d{2})\\s*[–—-]\\s*(\\d{1,2}:\\d{2})", "ig");
+      let mk;
+      while ((mk = reK.exec(attTxt))){
+        if (/^[A-ZÀ-Þ]/.test(mk[1])) continue;   // already handled by the strict pass above
+        const hit = speakers.find(s => s.toLowerCase() === mk[1].toLowerCase());
+        if (hit && perSp[hit]) perSp[hit].minutes_present = Math.max(0, parseClockMin(mk[3]) - parseClockMin(mk[2]));
+      }
+    }
     const inv = attTxt.match(/(\d+)\s+invit/i); if (inv) invitees = +inv[1];
   } else addNote("no attendance log — retention only for transcript speakers", 2);
 
@@ -1492,11 +1571,19 @@ function localExtract(){
   const chatEntries = [];
   if ($("aChat").value.trim()){
     const chatRe = new RegExp("^(?:(\\d{1,2}:\\d{2})\\s+)?(" + NAME_ANY + ")\\s*[:：]\\s*(.+)$");
+    /* same anchored fallback as the transcript/agenda readers: "sara:" in
+       the chat log is credited to Sara when she's already a known
+       speaker, rather than being dropped for missing the capital (v2.5). */
+    const knownChat = speakers.length ? speakers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") : null;
+    const chatReK = knownChat && new RegExp("^(?:(\\d{1,2}:\\d{2})\\s+)?(" + knownChat + ")\\s*[:：]\\s*(.+)$", "i");
     $("aChat").value.split(/\r?\n/).forEach(raw => {
       const line = arDigits(raw.trim()); if (!line) return;
-      const m = line.match(chatRe);
-      if (m && isName(m[2]) && (words(m[3]) >= 3 || /[?؟]/.test(m[3])))
-        chatEntries.push({ who: m[2], time: m[1] || null, text: m[3] });
+      let m = line.match(chatRe);
+      if (m && isName(m[2]) && (words(m[3]) >= 3 || /[?؟]/.test(m[3]))) { chatEntries.push({ who: m[2], time: m[1] || null, text: m[3] }); return; }
+      if (chatReK && (m = line.match(chatReK)) && (words(m[3]) >= 3 || /[?؟]/.test(m[3]))){
+        const who = speakers.find(s => s.toLowerCase() === m[2].toLowerCase()) || m[2];
+        chatEntries.push({ who, time: m[1] || null, text: m[3] });
+      }
     });
   }
   /* per-speaker timeline: every utterance they spoke, capped so the
