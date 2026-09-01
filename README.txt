@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v2.4" - the filename never changes
+3. The dark header should read "engine v2.5" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -35,6 +35,13 @@ QUICK START
       Can we close the vendor contract before month end?
   The speaker label doesn't have to be a person's name - "The respective
   team", "PMO lead" or "Facilitator" are all read as speakers.
+- Speaker names are matched independent of case - "Sara" and "sara" are
+  read as the same person, credited under the capitalized spelling. This
+  only recognizes a lowercase label once the capitalized form already
+  appears elsewhere in the same transcript, so ordinary text can never be
+  mistaken for a speaker; a transcript that's lowercase throughout, with
+  no capitalized occurrence anywhere, still needs real speaker labels to
+  unlock participation, presenter and Q&A metrics.
 
 BETTER EXTRACTION (OPTIONAL, ANY AI)
 The built-in engine is rule-based. For messy transcripts you can use any AI

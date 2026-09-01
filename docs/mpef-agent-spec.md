@@ -1,8 +1,8 @@
-# MPEF Analyzer Agent — Deployment Specification v2.4
+# MPEF Analyzer Agent — Deployment Specification v2.5
 
 A self-contained specification for deploying the Meeting Performance Evaluation Framework (MPEF v1.0) as an agent on any agentic AI platform. Paste §1 as the system prompt, wire §2 as the extraction contract, implement §3 as a code tool (never model output), operate per §4, and render §5.
 
-**v2.4 alignment.** This revision matches analyzer engine v2.4: a new **Agenda drift by member** report section (§5) renders directly under the Participation table, naming who drove the meeting off its agenda — off-topic question counts and how each was handled, off-agenda talk minutes per attendee, and a comparison bar per member — built entirely from data the engine was already extracting (`interaction.questions[].topic_match`, `participants[].timeline[].off_agenda`). The one addition is `participants[].off_agenda_minutes` (§2), the per-person total of that same off-agenda tagging, `null` under the identical honesty gate `meeting.off_agenda_minutes` already sits behind. No scoring weight or band changed; the Sample acceptance value is unchanged from v1.6 (**MPI 70.92 · Productive**). Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
+**v2.5 alignment.** This revision matches analyzer engine v2.5: speaker identity is now case-insensitive, fixed at the root rather than patched at each use site. "Sara" and "sara" fold to one participant (capitalized spelling wins for display) immediately after transcript parsing, so every downstream reference agrees — talk minutes, Q&A pairing, agenda ownership, decisions, actions, chat, and attendance. Recognizing a lowercase label at all is anchored to an already-established capitalized speaker (§1 INPUT NORMALIZATION) rather than a blanket case relaxation, so ordinary prose can never parse as a speaker. No scoring weight or band changed; the Sample acceptance value is unchanged from v1.6 (**MPI 70.92 · Productive**) — it uses consistently capitalized names throughout, so every change here is a no-op on it. Defaults here are identical to the workbook Config sheet and the app `CONFIG` — change one, change all three.
 
 ---
 
@@ -40,6 +40,24 @@ INPUT NORMALIZATION (stage S1)
   like Decision:/Action:) so a line of speech is never read as a speaker,
   and apply the looser rule ONLY to a line holding nothing but a timestamp
   and the label -- an inline "[10:04] ..." caption line is speech.
+- Speaker identity is one person, one spelling, independent of case:
+  "Sara" and "sara" are the same speaker, credited to whichever spelling
+  is capitalized (or, if every occurrence is lowercase, title-cased for
+  display). Fold immediately after parsing so every downstream reference
+  agrees -- talk minutes, the Q&A pairing (a question "answered" by a
+  case variant of its own asker is a self-answer, not a real exchange),
+  agenda ownership, decisions, actions, chat and attendance. Recognizing
+  a lowercase label in the first place is ANCHORED, never a blanket case
+  relaxation: accept "name:" case-insensitively only once "Name" is
+  already established as a real speaker elsewhere in the same artifact --
+  never on its own, since that would let ordinary prose ("so: we should
+  ship it") parse as a speaker. A transcript that is lowercase throughout,
+  with no capitalized occurrence to anchor to, is not rescued by this rule
+  and correctly stays Not Assessable for people-dependent metrics. The
+  same anchor applies to agenda-owner names, chat-log names, and
+  attendance-log names -- a silent attendee named only in the attendance
+  log, in lowercase, has no speaker to anchor to and is the one case this
+  rule does not capture.
 - Caption files with no speaker labels are still processed: set
   quality.has_speaker_labels=false and mark participation, presenter and Q&A
   pairing Not Assessable.
@@ -263,6 +281,7 @@ Ratio metrics print their counts (e.g. `Decision yield 100% · 1/1`) so thin evi
 
 ## 7. Changelog
 
+**v2.5** — input-normalization only, no scoring change. Speaker identity is folded case-insensitively immediately after transcript parsing: "Sara" and "sara" become one participant, credited to the capitalized spelling, so `perSp`/timeline keying, the Q&A pairing's asker/responder comparison, agenda ownership, `decisions[].speaker`, and chat/attendance lookups can no longer disagree with each other about who said what. Previously a lowercase variant wasn't a second participant -- it was unattributed text: the label failed the title-case shape test entirely, so the line's minutes and words were either orphaned (`sp: null`) or, with no timestamp, silently glued onto the *previous* speaker's turn as a continuation. Recognizing the lowercase label in the first place is anchored, not a blanket relaxation: `[time] name: text` is accepted case-insensitively only once `Name` is already an established speaker elsewhere in the same transcript, so ordinary prose ("so: we should ship it") still can't parse as a speaker, and an all-lowercase transcript with no capitalized occurrence anywhere correctly stays Not Assessable rather than being silently rescued. The same anchor extends to agenda-owner names (a lowercase presenter no longer loses their D3 credit), chat-log names, and attendance-log names -- with one honest limit: a silent attendee named only in the attendance log, in lowercase, has no speaker to anchor to and is still not captured. Sample acceptance value unchanged (MPI 70.92) — its names are consistently capitalized throughout.
 **v2.4** — new report section, no scoring change. **Agenda drift by member** (§5) renders directly under the Participation table: off-topic question counts with how each was handled, off-agenda talk minutes per attendee, and a comparison bar per member. Almost entirely built from data already extracted -- `interaction.questions[].topic_match` and `participants[].timeline[].off_agenda` -- except one addition, `participants[].off_agenda_minutes` (§2), the per-person total of that same tagging, `null` under the identical honesty gate the global `meeting.off_agenda_minutes` already sits behind (no agenda, or no matchable keywords), so a false zero never appears where the split simply isn't assessable. Only the "other item" verdict counts as proven off-topic; `"no keyword match"` renders as a separate Unclear count rather than being folded in, since the keyword engine couldn't evidence drift either way -- the same posture the framework already holds for `topic_match` itself. The section's two halves gate independently (questions need speaker labels, talk needs off-agenda to be assessable) and the whole section is omitted, not shown empty, only when both are gated. Sample acceptance value unchanged (MPI 70.92).
 **v2.3** — input-normalization only, no scoring change. Block-format transcripts are now recognized in both orderings (`Name 0:04` and `02:32:23  Name`), and a block header's speaker label no longer has to match a title-case person-name pattern, so labels like "The respective team" are captured as speakers rather than being absorbed into the utterance text -- a speaker-first block with such a label previously produced no utterances at all. Arabic-Indic digits are folded before block detection. The looser label is scoped to transcripts already proven to be block/export format, so caption-only input keeps `has_speaker_labels: false` and every people-dependent metric stays Not Assessable. Sample acceptance value unchanged (MPI 70.92).
 **v2.2** — presentation-consistency fix, no scoring change. The Contributions cell's Q/A counters (`participants[].questions`/`.answers`) were always the uncapped, scoring-relevant numbers feeding D4 Active contributors; the participant detail page instead filtered the *capped* (≤24) `interaction.questions[]` array, so a busy transcript could show the cell one number and the drill-down page a smaller one, and Proposals/Risks/Info had no detail-page representation at all despite being counted in the cell. Fixed by tagging every `participants[].timeline[]` entry with `kind` and `answer` (§2) at extraction time — the same classification that produces the counts — and rebuilding Questions asked, Answers given, Proposals, Risks and Info entirely from those tags, joined to the enriched `interaction.questions[]` record when one exists (for status/`topic_match`/the answer received) and falling back to the bare utterance when it doesn't (past the cap, or absent on legacy JSON). The Participation table's standalone Q/D/A columns are dropped — D and T (actions owned) join the cell instead, so every count lives in one place. Sample acceptance value unchanged (MPI 70.92).
