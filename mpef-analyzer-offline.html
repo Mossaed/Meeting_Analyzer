@@ -175,7 +175,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 <header>
   <div class="wrap hd">
     <div class="mark">MPEF <b>Analyzer</b></div>
-    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.5</span></div>
+    <div class="sub"><span data-i18n="hdSub">Meeting Performance Evaluation Framework v1.0 · offline edition · everything runs on this device, nothing is sent anywhere</span> · <span id="engineVerStamp">engine v2.6</span></div>
     <div class="spacer"></div>
     <div class="state" id="runState" aria-live="polite" data-i18n="runReady">offline-ready</div>
   </div>
@@ -288,7 +288,7 @@ th .tip .tipbubble,.nm .tip .tipbubble{text-transform:none;letter-spacing:normal
 /* Single source for the build stamp shown in the header and the method
    footer -- the filename never changes between versions (reuse guide sec7
    / sec8), so this constant is the only reliable place to bump it. */
-const ENGINE_VERSION = "2.5";
+const ENGINE_VERSION = "2.6";
 const engineVerEl = document.getElementById("engineVerStamp");
 if (engineVerEl) engineVerEl.textContent = "engine v" + ENGINE_VERSION;
 
@@ -421,6 +421,22 @@ const topicMatchLabel = tm => {
    the participant detail page -- matches how the app already tolerates
    minor name-form differences elsewhere (byOwner, attendance-log lookups). */
 const sameName = (a, b) => a && b && (a.toLowerCase().startsWith(b.toLowerCase()) || b.toLowerCase().startsWith(a.toLowerCase()));
+/* one numbering for the whole report, shared by render() and
+   participantDetailHtml() (v2.6) -- seeded in r.people order so a person is
+   the same Pn on the dashboard and on their own detail page. Before this fix
+   each view built its own lazy map, so the person shown as P3 on the
+   dashboard could be titled P1 on their own page (whichever name that view
+   saw first). Names outside r.people (e.g. a decision speaker who never
+   spoke) still get a lazy number appended after the seeded ones. */
+function anonNamer(r, on) {
+  const map = new Map();
+  if (on) (r.people || []).forEach(p => map.set(p.name, "P" + (map.size + 1)));
+  return n => {
+    if (!on) return n;
+    if (!map.has(n)) map.set(n, "P" + (map.size + 1));
+    return map.get(n);
+  };
+}
 /* Every user-facing string outside METRIC_META/DIM_META, keyed once and
    looked up by t(key, vars). Static markup carries data-i18n="key" (or
    data-i18n-ph="key" for a placeholder) and is walked by applyLang();
@@ -912,16 +928,69 @@ $("downloadJsonBtn").addEventListener("click", () => {
 /* self-contained HTML snapshot of the rendered report -- reuses the page's
    own <style> block so the downloaded file needs nothing else to display
    correctly, matching the app's own single-file, offline design. */
-function downloadReportHtml() {
+/* stable, collision-safe anchor id for a participant's page in the saved
+   standalone file. Built from the *displayed* table-cell name (so an
+   anonymized report's anchors read "pd-p1-1", never a real name) plus the
+   row index, since two participants can share a name (or an anonymized
+   or non-Latin name can slug to nothing at all). */
+const pdSlug = (disp, i) => {
+  const s = String(disp).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return "pd-" + (s ? s + "-" : "p") + (i + 1);
+};
+/* Builds the standalone report file's full HTML as a string -- a pure
+   function over the live DOM + lastModel, so it's independently testable
+   and reused by downloadReportHtml(). The saved file ships zero <script>
+   (that's the whole point of "offline, standalone"), so the JS-driven
+   participant drill-down (the delegated #report click listener,
+   renderParticipant(), lastModel) can't come along. Instead every
+   participant's detail page is pre-rendered right here -- while
+   lastModel and every helper are still live -- and wired up with
+   pure-CSS :target navigation: each ⋯ button becomes a plain
+   <a href="#pd-...">, hidden detail pages are `display:none` until
+   they're the :target, and a sibling selector hides the dashboard
+   whenever one is (v2.6). All of this runs on a detached clone of
+   #report, so building the file never touches the live page. */
+function buildReportFileHtml() {
+  const doc = document.documentElement;
   const styleTag = document.querySelector("style");
   const css = styleTag ? styleTag.outerHTML : "";
   const h1 = document.querySelector("#report h1");
   const titleTxt = h1 ? h1.textContent : "MPEF Report";
-  const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(titleTxt)} — MPEF report</title>${css}</head>
-<body><div class="wrap" style="padding:22px 0 60px">${document.getElementById("report").innerHTML}</div></body></html>`;
+
+  const home = document.createElement("div");
+  home.innerHTML = $("report").innerHTML;
+  home.id = "pd-home";
+
+  const pages = [];
+  [...home.querySelectorAll(".dotsBtn")].forEach((btn, i) => {
+    const pname = btn.getAttribute("data-pname");
+    const detail = participantDetailHtml(pname, { backHref: "#pd-home" });
+    if (detail === null) { btn.remove(); return; }   // no page => no dead control
+    const row = btn.closest("tr");
+    const id = pdSlug(row ? row.cells[0].textContent : pname, i);
+    const a = document.createElement("a");
+    a.className = "dotsBtn"; a.href = "#" + id; a.textContent = "⋯";
+    const label = btn.getAttribute("aria-label");
+    if (label) { a.setAttribute("aria-label", label); a.setAttribute("title", btn.getAttribute("title") || label); }
+    btn.replaceWith(a);
+    pages.push(`<section class="pdPage" id="${id}">${detail}</section>`);
+  });
+  /* window.print() keeps working standalone -- inline onclick="" handlers
+     run with no <script> tag at all. downloadReportHtml() itself doesn't
+     exist there, so that control is dropped rather than shipped broken. */
+  [...home.querySelectorAll("button")].forEach(b => {
+    if ((b.getAttribute("onclick") || "").includes("downloadReportHtml")) b.remove();
+  });
+
+  return `<!DOCTYPE html>
+<html lang="${doc.lang || "en"}" dir="${doc.dir || "ltr"}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(titleTxt)} — MPEF report</title>${css}<style>.pdPage{display:none}.pdPage:target{display:block}.pdPage:target ~ #pd-home{display:none}a.pdBack,a.dotsBtn{text-decoration:none}a.dotsBtn{display:inline-flex;align-items:center;justify-content:center}</style></head>
+<body><div class="wrap" style="padding:22px 0 60px">${pages.join("")}${home.outerHTML}</div></body></html>`;
+}
+function downloadReportHtml() {
+  const h1 = document.querySelector("#report h1");
+  const titleTxt = h1 ? h1.textContent : "MPEF Report";
   const slug = (titleTxt || "mpef-report").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  downloadText((slug || "mpef-report") + "-mpef-report.html", html);
+  downloadText((slug || "mpef-report") + "-mpef-report.html", buildReportFileHtml());
 }
 
 /* ================= built-in local extraction engine (deterministic, offline) ================= */
@@ -2027,12 +2096,7 @@ function render(r) {
      decision/action-owner names are unaffected, since the spec does not
      list those as anonymizable and doing so silently would be misleading. */
   const anonOn = $("anonToggle").checked;
-  const anonMap = new Map();
-  const dispName = name => {
-    if (!anonOn) return name;
-    if (!anonMap.has(name)) anonMap.set(name, "P" + (anonMap.size + 1));
-    return anonMap.get(name);
-  };
+  const dispName = anonNamer(r, anonOn);
   const ttl = esc($("mTitle").value || r.ext.meeting?.title || t("untitledMeeting"));
   const date = esc($("mDate").value || r.ext.meeting?.date || "");
   const bandChip = r.band
@@ -2264,21 +2328,18 @@ function render(r) {
 /* ================= participant drill-down ================= */
 /* Full-page detail for one participant: everything the report already
    knows about them, gathered from the same computed model (lastModel) --
-   no re-extraction, no separate data source. Swaps #report's content
-   in place, exactly like render() does; the Back button just calls
-   render(lastModel) again, which is a plain re-render since lastModel
-   is untouched by opening this page. */
-function renderParticipant(name) {
-  const r = lastModel; if (!r) return;
+   no re-extraction, no separate data source. participantDetailHtml() is
+   the pure builder (returns a string, or null when there's nothing to
+   show); renderParticipant() is the in-app entry point that swaps
+   #report's content in place, exactly like render() does. Split in v2.6
+   so buildReportFileHtml() can pre-render every participant's page at
+   download time without touching the live DOM. */
+function participantDetailHtml(name, opts) {
+  const r = lastModel; if (!r) return null;
   const anonOn = $("anonToggle").checked;
-  const anonMap = new Map();
-  const dispName = n => {
-    if (!anonOn) return n;
-    if (!anonMap.has(n)) anonMap.set(n, "P" + (anonMap.size + 1));
-    return anonMap.get(n);
-  };
+  const dispName = anonNamer(r, anonOn);
   const p = r.people.find(x => x.name === name) || r.ext.participants?.find(x => x.name === name);
-  if (!p) return;
+  if (!p) return null;
   const share = (() => {
     const tot = r.people.reduce((a,x)=>a+(isNum(x.talk_minutes)?x.talk_minutes:0),0);
     return tot>0 && isNum(p.talk_minutes) ? p.talk_minutes/tot : null;
@@ -2394,7 +2455,15 @@ function renderParticipant(name) {
       ${presentedItems.length ? `<span class="pdStat">${t("pdPresenterFor")}: ${presentedItems.map(i=>esc(i.title)).join(", ")}</span>` : ""}
     </div></div>`;
 
-  $("report").innerHTML = `<button type="button" class="pdBack" id="pdBackBtn">${t("btnBack")}</button>`
+  /* in-app, the Back control is a button wired to the delegated #report
+     listener below; a saved standalone file has no script, so
+     buildReportFileHtml() passes {backHref:"#pd-home"} to get a plain
+     anchor that CSS :target navigation can follow instead (v2.6). */
+  const back = opts && opts.backHref
+    ? `<a class="pdBack" href="${esc(opts.backHref)}">${t("btnBack")}</a>`
+    : `<button type="button" class="pdBack" id="pdBackBtn">${t("btnBack")}</button>`;
+
+  return back
     + head
     + card(t("secQuestionsAsked"), null, qAskedList)
     + card(t("secAnswersGiven"), null, qAnsweredList)
@@ -2406,6 +2475,11 @@ function renderParticipant(name) {
     + card(t("secChatMessages"), null, chatList)
     + card(t("secOffAgenda"), null, offAgendaList)
     + card(t("secTimeline"), null, timelineList);
+}
+function renderParticipant(name) {
+  const html = participantDetailHtml(name);
+  if (html === null) return;
+  $("report").innerHTML = html;
   $("report").focus();
 }
 /* delegated so it survives every render()/renderParticipant() innerHTML

@@ -1600,13 +1600,87 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v2.5'", () =>
-    assertTrue(/engine v2\.5/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.6'", () =>
+    assertTrue(/engine v2\.6/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "2.5"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.6"));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Downloaded report drill-down (engine v2.6) ===");
+{
+  // participantDetailHtml() is the pure builder renderParticipant() now
+  // wraps; it must behave identically to the old inline body, plus the
+  // new opts.backHref swap and null-return guards that buildReportFileHtml()
+  // depends on to pre-render every participant's page at download time.
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  sandbox.render(model);
+
+  check("participantDetailHtml() returns null before any model exists", () => {
+    const { sandbox: fresh } = boot(APP_PATH);
+    assertEqual(fresh.participantDetailHtml("Sara"), null);
+  });
+  check("participantDetailHtml() returns null for an unknown name (no throw)", () =>
+    assertEqual(sandbox.participantDetailHtml("Nobody Here"), null));
+  check("renderParticipant() output matches participantDetailHtml()'s own-page (button) form", () => {
+    const direct = sandbox.participantDetailHtml("Sara");
+    sandbox.renderParticipant("Sara");
+    assertEqual(els.report.innerHTML, direct);
+  });
+  check("participantDetailHtml(name, {backHref}) renders an <a> back link instead of the #pdBackBtn button", () => {
+    const withHref = sandbox.participantDetailHtml("Sara", { backHref: "#pd-home" });
+    assertTrue(withHref.startsWith('<a class="pdBack" href="#pd-home">'), withHref.slice(0, 80));
+    assertTrue(!withHref.includes('id="pdBackBtn"'), "expected no #pdBackBtn button when backHref is supplied");
+  });
+  check("the two forms otherwise render identical section content", () => {
+    const asButton = sandbox.participantDetailHtml("Sara");
+    const asLink = sandbox.participantDetailHtml("Sara", { backHref: "#pd-home" });
+    const strip = s => s.replace(/^<(?:button[^>]*>[^<]*<\/button|a[^>]*>[^<]*<\/a)>/, "");
+    assertEqual(strip(asButton), strip(asLink));
+  });
+}
+{
+  // pdSlug(): the anchor id buildReportFileHtml() gives each participant's
+  // pre-rendered page. Built from the *displayed* name, so it must never
+  // leak a real name when anonymize is on, must disambiguate duplicate or
+  // empty (non-Latin) slugs by row index, and must stay a valid fragment id.
+  const { sandbox } = boot(APP_PATH);
+  check("pdSlug() lowercases and hyphenates a plain name", () =>
+    assertEqual(sandbox.pdSlug("Sara", 0), "pd-sara-1"));
+  check("pdSlug() disambiguates two people with the same displayed name by index", () =>
+    assertTrue(sandbox.pdSlug("Sara", 0) !== sandbox.pdSlug("Sara", 1), sandbox.pdSlug("Sara", 0) + " vs " + sandbox.pdSlug("Sara", 1)));
+  check("pdSlug() falls back to a plain index for a name with no Latin characters", () =>
+    assertEqual(sandbox.pdSlug("سارة", 2), "pd-p3"));
+  check("pdSlug() produces the anonymized label itself when anonymize is on", () =>
+    assertEqual(sandbox.pdSlug("P1", 0), "pd-p1-1"));
+}
+{
+  // The dashboard and the detail page used to build their anonymize numbering
+  // independently -- a person shown as, say, P3 in the Participation table
+  // could be titled P1 on their own page (whichever name each view's own
+  // lazy map saw first). anonNamer() is the fix: one map, seeded in
+  // r.people order, shared by both call sites. Sara is a known speaking
+  // (non-silent) Sample participant, so she's guaranteed a row in the table.
+  const { sandbox, els } = boot(APP_PATH);
+  els.demoBtn._listeners.click[0]();
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+  els.anonToggle.checked = true;
+  sandbox.render(model);
+  const table = els.report.innerHTML;
+  const m = new RegExp('>(P\\d+)</td>[\\s\\S]{0,600}?data-pname="Sara"').exec(table);
+  assertTrue(!!m, "could not find Sara's anonymized label in the Participation table: " + table.slice(0, 500));
+  const dashboardLabel = m[1];
+  sandbox.renderParticipant("Sara");
+  const pd = els.report.innerHTML;
+  check("a participant's anonymized label is the same on the dashboard and on their own detail page", () =>
+    assertTrue(pd.includes(`<h1>${dashboardLabel}</h1>`), `expected <h1>${dashboardLabel}</h1> on the detail page, got: ` + pd.slice(0, 200)));
 }
 
 // ---------------------------------------------------------------------
