@@ -10,7 +10,7 @@ HOW TO OPEN
 1. Save mpef-analyzer-offline.html anywhere on your computer.
 2. Double-click it. It opens in your browser (Chrome, Edge, Firefox, or
    Safari from recent years all work).
-3. The dark header should read "engine v2.5" - the filename never changes
+3. The dark header should read "engine v2.6" - the filename never changes
    between versions, so this stamp is the only reliable way to check you
    have a current build. If it's missing or older, get a fresh copy.
 
@@ -111,3 +111,6 @@ GOOD TO KNOW
 - Nothing is saved between sessions and nothing ever leaves your device.
 - Use "Print / save as PDF", or "Download report (.html)" for a
   standalone copy, at the bottom of a report to keep or share results.
+  The downloaded file still has no script of any kind - opening it, the
+  "..." button next to each attendee still opens that person's full detail
+  page (and "Back to report" still returns), the same as in the app.
