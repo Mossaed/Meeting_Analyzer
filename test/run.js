@@ -1085,8 +1085,8 @@ console.log("\n=== Attendee questions: agenda attribution + topic match (engine 
   sandbox.render(model);
   sandbox.renderParticipant("Karl");
   const pd = els.report.innerHTML;
-  check("participant page's Questions asked section shows the 'other item' topic-match label (engine v2.1)", () =>
-    assertTrue(/other item \(Launch go\/no-go\)/.test(pd), pd.slice(pd.indexOf("Questions asked"), pd.indexOf("Questions asked") + 400)));
+  check("participant page's Questions asked section shows the 'off-topic' topic-match label (engine v2.1; relabeled from 'other item')", () =>
+    assertTrue(/off-topic \(Launch go\/no-go\)/.test(pd), pd.slice(pd.indexOf("Questions asked"), pd.indexOf("Questions asked") + 400)));
   check("participant page's Questions asked section shows the question's resolution status (engine v2.1)", () =>
     assertTrue(/>deferred</.test(pd), "expected Karl's deferred question to show its status"));
   const sara = ext.interaction.questions.find(q => q.status === "answered" && q.responder);
