@@ -1600,13 +1600,13 @@ console.log("\n=== Zero-network guarantee (offline edition) ===");
     assertTrue(!/fetch\(/.test(html), "found fetch( in " + APP_PATH));
   check("no XMLHttpRequest/WebSocket/localStorage/sessionStorage", () =>
     assertTrue(!/XMLHttpRequest|WebSocket|localStorage|sessionStorage|indexedDB/.test(html)));
-  check("header stamp reads 'engine v2.6'", () =>
-    assertTrue(/engine v2\.6/.test(html), "version stamp not found"));
+  check("header stamp reads 'engine v2.7'", () =>
+    assertTrue(/engine v2\.7/.test(html), "version stamp not found"));
 }
 {
   const { sandbox } = boot(APP_PATH);
   check("footer method text is built from ENGINE_VERSION, not a second hardcoded string", () =>
-    assertEqual(sandbox.ENGINE_VERSION, "2.6"));
+    assertEqual(sandbox.ENGINE_VERSION, "2.7"));
 }
 
 // ---------------------------------------------------------------------
@@ -1681,6 +1681,106 @@ console.log("\n=== Downloaded report drill-down (engine v2.6) ===");
   const pd = els.report.innerHTML;
   check("a participant's anonymized label is the same on the dashboard and on their own detail page", () =>
     assertTrue(pd.includes(`<h1>${dashboardLabel}</h1>`), `expected <h1>${dashboardLabel}</h1> on the detail page, got: ` + pd.slice(0, 200)));
+}
+
+// ---------------------------------------------------------------------
+console.log("\n=== Agenda drift: per-person question counts match Contributions (engine v2.7) ===");
+{
+  // interaction.questions[] is capped at 24 meeting-wide; Sara alone asks
+  // 26 here specifically to exceed it, so the drift card's old
+  // qsAll-filtering approach would under-report her -- the actual bug.
+  // "Sara Ahmed" asks a few too, so the sameName() prefix hazard the old
+  // per-row derivation had (an exact substring match credits each with
+  // the other's questions) has something to catch it on.
+  const { sandbox, els } = boot(APP_PATH);
+  const saraQs = Array.from({ length: 26 }, (_, i) => `Sara: Unrelated question number ${i + 1}, does that make sense?`);
+  const saraAhmedQs = Array.from({ length: 3 }, (_, i) => `Sara Ahmed: A totally different question ${i + 1}, right?`);
+  const omarQs = Array.from({ length: 2 }, (_, i) => `Omar: One more question ${i + 1}, agreed?`);
+  els.aTrans.value = [...saraQs, ...saraAhmedQs, ...omarQs,
+    "Sara: Thanks everyone, that covers the open items for today.",
+  ].join("\n");
+  const ext = sandbox.localExtract();
+  const model = sandbox.compute(ext);
+
+  check("interaction.questions is capped at 24 even though 31 questions were raised", () =>
+    assertEqual(ext.interaction.questions.length, 24));
+  check("interaction.questions_raised is the true uncapped total", () =>
+    assertEqual(ext.interaction.questions_raised, 31));
+  const sara = ext.participants.find(p => p.name === "Sara");
+  const saraAhmed = ext.participants.find(p => p.name === "Sara Ahmed");
+  const omar = ext.participants.find(p => p.name === "Omar");
+  check("Sara's uncapped question count reflects all 26 of her questions, not just the 24 that fit the payload cap", () =>
+    assertEqual(sara.questions, 26));
+  check("Sara's on/other/unclear counters sum to her own uncapped question count", () =>
+    assertEqual(sara.questions_on_topic + sara.questions_other_item + sara.questions_unclear, sara.questions));
+  check("Sara Ahmed's questions aren't inflated by Sara's, despite 'Sara' being a name-prefix of 'Sara Ahmed'", () =>
+    assertEqual(saraAhmed.questions, 3));
+  check("Sara's questions aren't inflated by Sara Ahmed's", () =>
+    assertEqual(sara.questions, 26));
+  check("interaction.topic_match_counts sums to the true 31-question total, not the capped 24", () => {
+    const c = ext.interaction.topic_match_counts;
+    assertEqual(c.on_topic + c.other_item + c.no_keyword_match, 31);
+  });
+
+  sandbox.render(model);
+  const html = els.report.innerHTML;
+  const driftIdx = html.indexOf(sandbox.STR.cardAgendaDrift.en);
+  assertTrue(driftIdx !== -1, "expected the Agenda drift card to render");
+  const driftHtml = html.slice(driftIdx);
+
+  // Contributions cell text for Sara, e.g. "Q26 · A0 · P0 · R0 · I0 · D0 · T0"
+  const contribCellM = /Q(\d+) · A\d+ · P\d+ · R\d+ · I\d+ · D\d+ · T\d+<\/td>\s*<td class="num"><button type="button" class="dotsBtn" data-pname="Sara"/.exec(html);
+  assertTrue(!!contribCellM, "could not find Sara's Contributions cell in " + html.slice(0, 400));
+  const contribQ = +contribCellM[1];
+  check("Sara's Contributions-cell Q count is her true uncapped total (26)", () => assertEqual(contribQ, 26));
+
+  // Drift row: <td>Sara</td><td class="num" dir="ltr">Questions</td>...
+  const driftRowM = new RegExp('<td>Sara</td>\\s*<td class="num" dir="ltr">(\\d+)</td>').exec(driftHtml);
+  assertTrue(!!driftRowM, "could not find Sara's drift row in " + driftHtml.slice(0, 800));
+  const driftQ = +driftRowM[1];
+  check("the drift card's Questions column for Sara equals the Contributions cell's Q count -- the actual v2.7 fix", () =>
+    assertEqual(driftQ, contribQ));
+}
+{
+  // Pseudo mode (no real speaker labels): the new per-person counters must
+  // stay null (not a measured 0), the same honesty gate interaction.
+  // questions itself already sits behind.
+  const { sandbox, els } = boot(APP_PATH);
+  els.aTrans.value = "[10:00] Any objections to the plan here today at all?\n[10:05] It looks like we are all set for now, thanks.";
+  const ext = sandbox.localExtract();
+  check("pseudo mode: participants[].questions_on_topic/other_item/unclear are null, not 0", () =>
+    assertTrue(ext.participants.every(p => p.questions_on_topic === null && p.questions_other_item === null && p.questions_unclear === null),
+      JSON.stringify(ext.participants.map(p => ({ n: p.name, o: p.questions_on_topic })))));
+  check("pseudo mode: interaction.topic_match_counts is null", () => assertNull(ext.interaction.topic_match_counts));
+  check("pseudo mode: interaction.off_topic_status is null", () => assertNull(ext.interaction.off_topic_status));
+}
+{
+  // Legacy Route B JSON predating v2.7 has interaction.questions[] and
+  // participants[].questions, but none of the new fields -- the drift
+  // card must still render (via the documented sameName()-filtered
+  // fallback), not throw.
+  const { sandbox, els } = boot(APP_PATH);
+  const legacy = {
+    meeting: { title: "Legacy", scheduled_minutes: 30, actual_minutes: 30, off_agenda_minutes: null },
+    agenda_items: [], participants: [
+      { name: "Sara", present: true, talk_minutes: 10, questions: 2, answers: 0, proposals: 0, risks: 0, info: 0 },
+      { name: "Omar", present: true, talk_minutes: 10, questions: 1, answers: 1, proposals: 0, risks: 0, info: 0 },
+    ],
+    presenters: [],
+    interaction: { questions_raised: 3, questions_answered: 1, questions_deferred: 0,
+      questions: [
+        { text: "Are we on track?", asker: "Sara", status: "answered", responder: "Omar", evidence: "e1", topic_match: "on topic" },
+        { text: "What about the budget?", asker: "Sara", status: "unanswered", responder: null, evidence: "e2", topic_match: "other item (Budget)" },
+        { text: "Any other business?", asker: "Omar", status: "unanswered", responder: null, evidence: "e3", topic_match: "no keyword match" },
+      ] },
+    outcomes: { actions_total: 0, actions_with_owner_and_due: 0, transcript_items: 0, decisions: [], actions: [] },
+    quality: { has_timestamps: false, has_speaker_labels: true, notes: [] },
+  };
+  const model = sandbox.compute(legacy);
+  check("legacy Route B JSON without the v2.7 fields scores without throwing", () => sandbox.render(model));
+  const html = els.report.innerHTML;
+  check("legacy JSON still renders a drift row naming Sara via the sameName() fallback", () =>
+    assertTrue(/<td>Sara<\/td>/.test(html)));
 }
 
 // ---------------------------------------------------------------------
